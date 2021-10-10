@@ -10,6 +10,8 @@ from torch.optim import Adam
 from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy
 
 from model.music_transformer import MusicTransformer
+# EY MusicDiscriminator
+from model.Music_Discriminator import MusicDiscriminator
 from model.loss import SmoothCrossEntropyLoss
 
 from utilities.constants import *
@@ -77,6 +79,8 @@ def main():
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+    # EY critic
+    critic = MusicDiscriminator()
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH
@@ -143,7 +147,8 @@ def main():
             print("")
 
             # Train
-            train_epoch(epoch+1, model, train_loader, train_loss_func, opt, lr_scheduler, args.print_modulus)
+            # EY 고쳐야 할 부분의 시작
+            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, opt, lr_scheduler, args.print_modulus)
 
             print(SEPERATOR)
             print("Evaluating:")

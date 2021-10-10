@@ -1,6 +1,7 @@
 import torch
 import time
 
+from utilities.WGAN_GP import WassersteinLoss
 from .constants import *
 from utilities.device import get_device
 from .lr_scheduling import get_lr
@@ -9,7 +10,7 @@ from dataset.e_piano import compute_epiano_accuracy
 
 
 # train_epoch
-def train_epoch(cur_epoch, model, dataloader, loss, opt, lr_scheduler=None, print_modulus=1):
+def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, lr_scheduler=None, print_modulus=1):
     """
     ----------
     Author: Damon Gwinn
@@ -33,7 +34,15 @@ def train_epoch(cur_epoch, model, dataloader, loss, opt, lr_scheduler=None, prin
         y   = y.reshape(y.shape[0] * y.shape[1], -1)
         tgt = tgt.flatten()
 
-        out = loss.forward(y, tgt)
+        # add - EY
+        real_pred = critic(tgt)
+        fake_pred = critic(y)
+
+        fake_loss = WassersteinLoss(fake_pred, -torch.ones_like(fake_pred))
+        real_loss = WassersteinLoss(real_pred, torch.ones_like(real_pred))
+
+        # NLL + Music_Discriminator Loss         # later...+ POP_Classic_Classificator
+        out = loss.forward(y, tgt) + fake_loss + real_loss
 
         out.backward()
         opt.step()
