@@ -15,6 +15,7 @@ from model.Music_Discriminator import MusicDiscriminator
 from model.loss import SmoothCrossEntropyLoss
 
 from utilities.constants import *
+from utilities.WGAN_GP import WassersteinLoss
 from utilities.device import get_device, use_cuda
 from utilities.lr_scheduling import LrStepTracker, get_lr
 from utilities.argument_funcs import parse_train_args, print_train_args, write_model_params
@@ -80,7 +81,8 @@ def main():
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
     # EY critic
-    critic = MusicDiscriminator()
+    # num_prime = args.num_prime
+    critic = MusicDiscriminator(num_prime = 256).to(get_device())
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH
@@ -116,6 +118,9 @@ def main():
     else:
         train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
 
+    ##### EY - WGAN Loss #####
+    WGAN_loss_func = WassersteinLoss()
+
     ##### Optimizer #####
     opt = Adam(model.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
 
@@ -148,7 +153,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, opt, lr_scheduler, args.print_modulus)
+            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, WGAN_loss_func, opt, lr_scheduler, args.print_modulus)
 
             print(SEPERATOR)
             print("Evaluating:")
