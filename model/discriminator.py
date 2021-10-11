@@ -29,12 +29,11 @@ class MusicDiscriminator(nn.Module):
 
             nn.Linear(num_prime//128, 1),
             nn.LeakyReLU(0.3, inplace=True),
-
+            nn.Sigmoid()
         )
 
     def forward(self, x):
-        fx = self.net(x)
-        return fx
+        return self.net(x)
 
 class POP_Classic_Classificator(nn.Module):
     def __init__(self, num_prime = 256):

@@ -11,7 +11,7 @@ from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy
 
 from model.music_transformer import MusicTransformer
 # EY MusicDiscriminator
-from model.discriminator import MusicDiscriminator
+from model.Music_Discriminator import MusicDiscriminator
 from model.loss import SmoothCrossEntropyLoss
 
 from utilities.constants import *
@@ -155,7 +155,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, opt, critic_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
+            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, WGAN_loss_func, opt, critic_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
 
             print(SEPERATOR)
             print("Evaluating:")
