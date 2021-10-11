@@ -1,67 +1,85 @@
 import torch
 import torch.nn as nn
+from torch.nn.modules.normalization import LayerNorm
+import random
+
+from utilities.constants import *
+from utilities.device import get_device
+
+from .positional_encoding import PositionalEncoding
+from .rpr import TransformerEncoderRPR, TransformerEncoderLayerRPR
 
 class MusicDiscriminator(nn.Module):
-    def __init__(self, num_prime = 256):
-        super().__init__()
-        self.net = nn.Sequential(
-            # input shape: (batch_size, num_prime)
-            nn.Linear(num_prime, num_prime//2),
-            nn.LeakyReLU(0.3, inplace=True),
+    def __init__(self, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
+                 dropout=0.1, max_sequence=2048, rpr=False):
+        super(MusicDiscriminator, self).__init__()
 
-            nn.Linear(num_prime//2, num_prime//4),
-            nn.LeakyReLU(0.3, inplace=True),
+        self.nlayers    = n_layers
+        self.nhead      = num_heads
+        self.d_model    = d_model
+        self.d_ff       = dim_feedforward
+        self.dropout    = dropout
+        self.max_seq    = max_sequence
+        self.rpr        = rpr
 
-            nn.Linear(num_prime//4, num_prime//8),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Input embedding
+        self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
 
-            nn.Linear(num_prime//8, num_prime//16),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Positional encoding
+        self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
 
-            nn.Linear(num_prime//16, num_prime//32),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Base transformer
+        if(not self.rpr):
+            # To make a decoder-only transformer we need to use masked encoder layers
+            # Dummy decoder to essentially just return the encoder output
+            self.transformer = nn.Transformer(
+                d_model=self.d_model, nhead=self.nhead, num_encoder_layers=self.nlayers,
+                num_decoder_layers=0, dropout=self.dropout, # activation=self.ff_activ,
+                dim_feedforward=self.d_ff, custom_decoder=None
+            )
+        # RPR Transformer
+        else:
+            encoder_norm = LayerNorm(self.d_model)
+            encoder_layer = TransformerEncoderLayerRPR(self.d_model, self.nhead, self.d_ff, self.dropout, er_len=self.max_seq)
+            encoder = TransformerEncoderRPR(encoder_layer, self.nlayers, encoder_norm)
+            self.transformer = nn.Transformer(
+                d_model=self.d_model, nhead=self.nhead, num_encoder_layers=self.nlayers,
+                num_decoder_layers=0, dropout=self.dropout, # activation=self.ff_activ,
+                dim_feedforward=self.d_ff, custom_decoder=None, custom_encoder=encoder
+            )
 
-            nn.Linear(num_prime//32, num_prime//64),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Final output is a softmaxed linear layer
+        self.Wout       = nn.Linear(self.d_model, 1)
+        self.sigmoid    = nn.Sigmoid()
 
-            nn.Linear(num_prime//64, num_prime//128),
-            nn.LeakyReLU(0.3, inplace=True),
-
-            nn.Linear(num_prime//128, 1),
-            nn.LeakyReLU(0.3, inplace=True),
-            nn.Sigmoid()
-        )
-
+    # forward
     def forward(self, x):
-        return self.net(x)
+        """
+        ----------
+        Author: Damon Gwinn
+        ----------
+        Takes an input sequence and outputs predictions using a sequence to sequence method.
 
-class POP_Classic_Classificator(nn.Module):
-    def __init__(self, num_prime = 256):
-        super(self).__init__()
-        self.net = nn.Sequential(
-            # input shape: (batch_size, MAX_LEN)
-            nn.Linear(num_prime, num_prime//2),
-            nn.LeakyReLU(0.3, inplace=True),
+        A prediction at one index is the "next" prediction given all information seen previously.
+        ----------
+        """
 
-            nn.Linear(num_prime//2, num_prime//4),
-            nn.LeakyReLU(0.3, inplace=True),
+        x = self.embedding(x)
 
-            nn.Linear(num_prime//4, num_prime//8),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Input shape is (max_seq, batch_size, d_model)
+        x = x.permute(1,0,2)
 
-            nn.Linear(num_prime//8, num_prime//16),
-            nn.LeakyReLU(0.3, inplace=True),
+        x = self.positional_encoding(x)
 
-            nn.Linear(num_prime//16, num_prime//32),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Since there are no true decoder layers, the tgt is unused
+        # Pytorch wants src and tgt to have some equal dims however
+        x_out = self.transformer(src=x, tgt=x, src_mask=None)
 
-            nn.Linear(num_prime//32, num_prime//64),
-            nn.LeakyReLU(0.3, inplace=True),
+        # Back to (batch_size, max_seq, d_model)
+        x_out = x_out.permute(1,0,2)
 
-            nn.Linear(num_prime//64, num_prime//128),
-            nn.LeakyReLU(0.3, inplace=True),
-        )
+        y = self.sigmoid(self.Wout(x_out[:,-1,:])).squeeze(-1)
+        # y = self.softmax(y)
 
-    def forward(self, x):
-        fx = self.net(x)
-        return fx
+        # They are trained to predict the next note in sequence (we don't need the last one)
+        return y

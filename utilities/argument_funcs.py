@@ -17,9 +17,9 @@ def parse_train_args():
     parser.add_argument("-input_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-output_dir", type=str, default="./saved_models", help="Folder to save model weights. Saves one every epoch")
     parser.add_argument("-weight_modulus", type=int, default=10, help="How often to save epoch weights (ex: value of 10 means save every 10 epochs)")
-    parser.add_argument("-print_modulus", type=int, default=100, help="How often to print train results for a batch (batch loss, learn rate, etc.)")
+    parser.add_argument("-print_modulus", type=int, default=10, help="How often to print train results for a batch (batch loss, learn rate, etc.)")
 
-    parser.add_argument("-n_workers", type=int, default=1, help="Number of threads for the dataloader")
+    parser.add_argument("-n_workers", type=int, default=4, help="Number of threads for the dataloader")
     parser.add_argument("--force_cpu", action="store_true", help="Forces model to run on a cpu even when gpu is available")
     parser.add_argument("--no_tensorboard", action="store_true", help="Turns off tensorboard result reporting")
 
@@ -99,7 +99,7 @@ def parse_eval_args():
     parser.add_argument("-n_workers", type=int, default=1, help="Number of threads for the dataloader")
     parser.add_argument("--force_cpu", action="store_true", help="Forces model to run on a cpu even when gpu is available")
 
-    parser.add_argument("-batch_size", type=int, default=2, help="Batch size to use")
+    parser.add_argument("-batch_size", type=int, default=1, help="Batch size to use")
 
     parser.add_argument("--rpr", action="store_true", help="Use a modified Transformer for Relative Position Representations")
     parser.add_argument("-max_sequence", type=int, default=2048, help="Maximum midi sequence to consider in the model")

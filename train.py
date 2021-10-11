@@ -80,9 +80,12 @@ def main():
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+
     # EY critic
     # num_prime = args.num_prime
-    critic = MusicDiscriminator(num_prime = args.max_sequence).to(get_device())
+    critic = MusicDiscriminator(n_layers=args.n_layers, num_heads=args.num_heads,
+                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
+                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH

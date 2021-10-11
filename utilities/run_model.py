@@ -20,6 +20,11 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
 
     out = -1
     model.train()
+
+    acc_nll_loss = 0
+    acc_dis_loss = 0
+    acc_gen_loss = 0
+
     for batch_num, batch in enumerate(dataloader):
         time_before = time.time()
 
@@ -28,9 +33,8 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
 
         y = model(x)
 
-        # loss - EY
-        D_real = critic(tgt.float())
-        D_fake = critic(torch.argmax(y, -1).float())
+        
+        D_fake = critic(torch.argmax(y, -1))
         
         # During discriminator forward-backward-update
         # D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
@@ -39,38 +43,44 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
         G_loss = - torch.mean(D_fake)
         
         y   = y.reshape(y.shape[0] * y.shape[1], -1)
-        tgt = tgt.flatten()
+        flattened_tgt = tgt.flatten()
         
-        nll_loss = loss.forward(y, tgt)
+        nll_loss = loss.forward(y, flattened_tgt)
         
         total_loss = nll_loss + G_loss
         
         # generator update!
+        if batch_num % 2 == 0:
+            opt.zero_grad() 
+            total_loss.backward()
+            opt.step()
+                
+        # discriminator update!
+    
+        y = model(x)
         
-        opt.zero_grad()
+        #D_fake = critic(torch.argmax(y, -1).float())
+        D_real = critic(tgt)
+        D_fake = critic(torch.argmax(y, -1))
         
-        total_loss.backward()
-        opt.step()
-            
-        if batch_num % 10 == 0:  # discriminator update!
-            y = model(x)
-            
-            D_fake = critic(torch.argmax(y, -1).float())
-            
-            # During discriminator forward-backward-update
-            D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
-            
-            
-            critic_opt.zero_grad()
-            
-            D_loss.backward()
-            critic_opt.step()
-            
-            if critic_lr_scheduler is not None:
-                critic_lr_scheduler.step()
+        # During discriminator forward-backward-update
+        D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
         
-        for p in critic.parameters():
-            p.data.clamp_(-0.01, 0.01)
+        critic_opt.zero_grad()
+        
+        D_loss.backward()
+        critic_opt.step()
+
+
+        acc_nll_loss += float(nll_loss)
+        acc_dis_loss += float(D_loss)
+        acc_gen_loss += float(G_loss)
+        
+        if critic_lr_scheduler is not None:
+            critic_lr_scheduler.step()
+        
+        #for p in critic.parameters():
+        #    p.data.clamp_(-0.01, 0.01)
 
         if lr_scheduler is not None:
             lr_scheduler.step()
@@ -81,8 +91,8 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
         if((batch_num+1) % print_modulus == 0):
             print(SEPERATOR)
             print(f"Epoch {cur_epoch}, Batch {batch_num+1}/{len(dataloader)}")
-            print(f"LR: {get_lr(opt)}, Critic LR: {get_lr(critic_opt)}")
-            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {float(nll_loss):.5f}, Discriminator loss: {float(D_loss):.5f}, Generator loss: {float(G_loss):.5f}")
+            print(f"LR: {get_lr(opt)}")
+            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (batch_num + 1):.5f}, Generator loss: {acc_gen_loss / (batch_num + 1):.5f}")
             print("")
             print(f"Time (s): {time_took}")
             print(SEPERATOR)
