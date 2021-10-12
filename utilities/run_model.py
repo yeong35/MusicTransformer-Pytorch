@@ -76,7 +76,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         # classifier update!
         classifier_pred = classifier(torch.argmax(y, -1))
 
-        BCE_loss = classifier_loss(classifier_pred, label)
+        BCE_loss = classifier_loss(torch.reshape(classifier_pred, (1, 1)), label)
 
         classifier_opt.zero_grad()
 

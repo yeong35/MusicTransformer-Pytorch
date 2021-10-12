@@ -65,7 +65,7 @@ class EPianoDataset(Dataset):
 
         x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq)
 
-        return x, tgt, self.label
+        return x, tgt, torch.tensor(self.label).type(torch.FloatTensor)
 
 # process_midi
 def process_midi(raw_mid, max_seq, random_seq):
