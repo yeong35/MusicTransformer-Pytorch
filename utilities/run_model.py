@@ -34,8 +34,8 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, WGAN_loss, opt, lr_s
         tgt = tgt.flatten()
 
         # loss - EY
-        real_pred = critic(tgt.type(torch.FloatTensor).to(get_device()))
         fake_pred = critic(y.type(torch.FloatTensor).to(get_device()))
+        real_pred = critic(tgt.type(torch.FloatTensor).to(get_device()))
 
         real_loss = WGAN_loss(real_pred, torch.ones_like(real_pred))
         fake_loss = WGAN_loss(fake_pred, -torch.ones_like(fake_pred))

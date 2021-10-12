@@ -38,9 +38,9 @@ class MusicDiscriminator(nn.Module):
 
 class POP_Classic_Classificator(nn.Module):
     def __init__(self, num_prime = 256):
-        super(self).__init__()
+        super().__init__()
         self.net = nn.Sequential(
-            # input shape: (batch_size, MAX_LEN)
+            # input shape: (batch_size, num_prime)
             nn.Linear(num_prime, num_prime//2),
             nn.LeakyReLU(0.3, inplace=True),
 
@@ -59,8 +59,9 @@ class POP_Classic_Classificator(nn.Module):
             nn.Linear(num_prime//32, num_prime//64),
             nn.LeakyReLU(0.3, inplace=True),
 
-            nn.Linear(num_prime//64, num_prime//128),
-            nn.LeakyReLU(0.3, inplace=True),
+            nn.Linear(num_prime//64, 2),
+            nn.LeakyReLU(0.3, inplace=True)
+
         )
 
     def forward(self, x):
