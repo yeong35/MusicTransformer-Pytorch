@@ -9,7 +9,7 @@ from dataset.e_piano import compute_epiano_accuracy
 
 
 # train_epoch
-def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_scheduler=None, critic_lr_scheduler=None, print_modulus=1):
+def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifier_loss, opt, critic_opt, classifier_opt, lr_scheduler=None, critic_lr_scheduler=None, print_modulus=1):
     """
     ----------
     Author: Damon Gwinn
@@ -24,12 +24,14 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
     acc_nll_loss = 0
     acc_dis_loss = 0
     acc_gen_loss = 0
+    acc_cla_loss = 0
 
     for batch_num, batch in enumerate(dataloader):
         time_before = time.time()
 
         x   = batch[0].to(get_device())
         tgt = batch[1].to(get_device())
+        label = batch[2].to(get_device())
 
         y = model(x)
 
@@ -71,10 +73,22 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
         D_loss.backward()
         critic_opt.step()
 
+        # classifier update!
+        classifier_pred = classifier(torch.argmax(y, -1))
+
+        BCE_loss = classifier_loss(classifier_pred, label)
+
+        classifier_opt.zero_grad()
+
+        BCE_loss.backward()
+        classifier_opt.step()
+
+
 
         acc_nll_loss += float(nll_loss)
         acc_dis_loss += float(D_loss)
         acc_gen_loss += float(G_loss)
+        acc_cla_loss += float(BCE_loss)
         
         if critic_lr_scheduler is not None:
             critic_lr_scheduler.step()
@@ -92,7 +106,7 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, opt, critic_opt, lr_
             print(SEPERATOR)
             print(f"Epoch {cur_epoch}, Batch {batch_num+1}/{len(dataloader)}")
             print(f"LR: {get_lr(opt)}")
-            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (batch_num + 1):.5f}, Generator loss: {acc_gen_loss / (batch_num + 1):.5f}")
+            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (batch_num + 1):.5f}, Generator loss: {acc_gen_loss / (batch_num + 1):.5f}, Classifier loss: {acc_cla_loss / (batch_num + 1):.5f}")
             print("")
             print(f"Time (s): {time_took}")
             print(SEPERATOR)

@@ -10,8 +10,10 @@ from torch.optim import Adam
 from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy
 
 from model.music_transformer import MusicTransformer
-# EY MusicDiscriminator
+
 from model.discriminator import MusicDiscriminator
+from model.classifier import MusicClassifier
+
 from model.loss import SmoothCrossEntropyLoss
 
 from utilities.constants import *
@@ -71,7 +73,12 @@ def main():
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-    train_dataset, val_dataset, test_dataset = create_epiano_datasets(args.input_dir, args.max_sequence)
+    ctrain_dataset, cval_dataset, ctest_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
+    ptrain_dataset, pval_dataset, ptest_dataset = create_epiano_datasets(args.pop_input_dir, args.max_sequence)
+
+    train_dataset = ctrain_dataset + ptrain_dataset
+    val_dataset   = cval_dataset + pval_dataset
+    test_dataset  = ctest_dataset + ptest_dataset
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.n_workers, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.n_workers)
@@ -84,6 +91,10 @@ def main():
     # EY critic
     # num_prime = args.num_prime
     critic = MusicDiscriminator(n_layers=args.n_layers, num_heads=args.num_heads,
+                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
+                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+
+    classifier = MusicClassifier(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
@@ -122,15 +133,17 @@ def main():
         train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
 
     ##### EY - WGAN Loss #####
-    WGAN_loss_func = WassersteinLoss()
+    classifier_loss_func = nn.BCELoss()
 
     ##### Optimizer #####
     opt = Adam(model.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
     critic_opt = Adam(critic.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
+    classifier_opt = Adam(classifier.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
 
     if(args.lr is None):
         lr_scheduler = LambdaLR(opt, lr_stepper.step)
         critic_lr_scheduler = LambdaLR(critic_opt, lr_stepper.step)
+        classifier_lr_scheduler = LambdaLR(classifier_opt, lr_stepper.step)
     else:
         lr_scheduler = None
 
@@ -158,7 +171,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, opt, critic_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
+            train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
 
             print(SEPERATOR)
             print("Evaluating:")
