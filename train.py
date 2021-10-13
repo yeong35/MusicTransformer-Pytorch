@@ -1,17 +1,21 @@
 import os
 import csv
 import shutil
+from datetime import datetime
+
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy
+from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy, create_pop909_datasets
 
 from model.music_transformer import MusicTransformer
-# EY MusicDiscriminator
-from model.Music_Discriminator import MusicDiscriminator
+
+from model.discriminator import MusicDiscriminator
+from model.classifier import MusicClassifier
+
 from model.loss import SmoothCrossEntropyLoss
 
 from utilities.constants import *
@@ -44,6 +48,10 @@ def main():
         print("WARNING: Forced CPU usage, expect model to perform slower")
         print("")
 
+    eventid = datetime.now().strftime('MusicTransformer-%Y.%m.%d-%H:%M:%S')
+
+    args.output_dir = args.output_dir  + "/" +  eventid
+
     os.makedirs(args.output_dir, exist_ok=True)
 
     ##### Output prep #####
@@ -59,19 +67,34 @@ def main():
     results_file = os.path.join(results_folder, "results.csv")
     best_loss_file = os.path.join(results_folder, "best_loss_weights.pickle")
     best_acc_file = os.path.join(results_folder, "best_acc_weights.pickle")
+    best_loss_critic_file = os.path.join(results_folder, "best_loss_critic_weights.pickle")
+    best_acc_critic_file = os.path.join(results_folder, "best_acc_critic_weights.pickle")
     best_text = os.path.join(results_folder, "best_epochs.txt")
 
     ##### Tensorboard #####
     if(args.no_tensorboard):
         tensorboard_summary = None
     else:
-        from torch.utils.tensorboard import SummaryWriter
+        from torch.utils.tensorboard import SummaryWriter        
 
-        tensorboad_dir = os.path.join(args.output_dir, "tensorboard")
+        tensorboad_dir = os.path.join(args.output_dir, "tensorboard/" + eventid)
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-    train_dataset, val_dataset, test_dataset = create_epiano_datasets(args.input_dir, args.max_sequence)
+    ctrain_dataset, cval_dataset, ctest_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
+    ptrain_dataset, pval_dataset, ptest_dataset = create_epiano_datasets(args.pop_input_dir, args.max_sequence)
+
+    train_dataset = ctrain_dataset + ptrain_dataset
+    val_dataset   = cval_dataset + pval_dataset
+    test_dataset  = ctest_dataset + ptest_dataset
+
+    pop909_dataset = create_pop909_datasets('dataset/pop_pickle', args.max_sequence)
+
+    train_set, val_set, test_set = torch.utils.data.random_split(pop909_dataset, [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)])
+
+    train_dataset = torch.utils.data.ConcatDataset([train_dataset, train_set])
+
+
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.n_workers, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.n_workers)
@@ -80,9 +103,16 @@ def main():
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+
     # EY critic
     # num_prime = args.num_prime
-    critic = MusicDiscriminator(num_prime = 256).to(get_device())
+    critic = MusicDiscriminator(n_layers=args.n_layers, num_heads=args.num_heads,
+                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
+                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+
+    classifier = MusicClassifier(n_layers=args.n_layers, num_heads=args.num_heads,
+                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
+                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH
@@ -119,13 +149,17 @@ def main():
         train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
 
     ##### EY - WGAN Loss #####
-    WGAN_loss_func = WassersteinLoss()
+    classifier_loss_func = nn.BCELoss()
 
     ##### Optimizer #####
     opt = Adam(model.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
+    critic_opt = Adam(critic.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
+    classifier_opt = Adam(classifier.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
 
     if(args.lr is None):
         lr_scheduler = LambdaLR(opt, lr_stepper.step)
+        critic_lr_scheduler = LambdaLR(critic_opt, lr_stepper.step)
+        classifier_lr_scheduler = LambdaLR(classifier_opt, lr_stepper.step)
     else:
         lr_scheduler = None
 
@@ -153,7 +187,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, train_loader, train_loss_func, WGAN_loss_func, opt, lr_scheduler, args.print_modulus)
+            train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
 
             print(SEPERATOR)
             print("Evaluating:")
@@ -182,12 +216,14 @@ def main():
             best_eval_acc = eval_acc
             best_eval_acc_epoch  = epoch+1
             torch.save(model.state_dict(), best_acc_file)
+            torch.save(critic.state_dict(), best_acc_critic_file)
             new_best = True
 
         if(eval_loss < best_eval_loss):
             best_eval_loss       = eval_loss
             best_eval_loss_epoch = epoch+1
             torch.save(model.state_dict(), best_loss_file)
+            torch.save(critic.state_dict(), best_loss_critic_file)
             new_best = True
 
         # Writing out new bests

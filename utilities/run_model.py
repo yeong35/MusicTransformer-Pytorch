@@ -9,7 +9,7 @@ from dataset.e_piano import compute_epiano_accuracy
 
 
 # train_epoch
-def train_epoch(cur_epoch, model, critic, dataloader, loss, WGAN_loss, opt, lr_scheduler=None, print_modulus=1):
+def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifier_loss, opt, critic_opt, classifier_opt, lr_scheduler=None, critic_lr_scheduler=None, print_modulus=1):
     """
     ----------
     Author: Damon Gwinn
@@ -17,38 +17,93 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, WGAN_loss, opt, lr_s
     Trains a single model epoch
     ----------
     """
+    GAN_mode = False
 
-    out = -1
     model.train()
+
+    acc_nll_loss = 0
+    acc_dis_loss = 0
+    acc_gen_loss = 0
+    acc_cla_loss = 0
+
     for batch_num, batch in enumerate(dataloader):
         time_before = time.time()
 
-        opt.zero_grad()
-
         x   = batch[0].to(get_device())
         tgt = batch[1].to(get_device())
+        label = batch[2].to(get_device())
 
         y = model(x)
 
-        y   = y.reshape(y.shape[0] * y.shape[1], -1)
-        tgt = tgt.flatten()
 
-        # loss - EY
-        fake_pred = critic(y.type(torch.FloatTensor).to(get_device()))
-        real_pred = critic(tgt.type(torch.FloatTensor).to(get_device()))
+        # During discriminator forward-backward-update
+        # D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
 
-        real_loss = WGAN_loss(real_pred, torch.ones_like(real_pred))
-        fake_loss = WGAN_loss(fake_pred, -torch.ones_like(fake_pred))
+        # During generator forward-backward-update
 
-        # NLL + Music_Discriminator Loss         # later...+ POP_Classic_Classificator
-        out = loss.forward(y, tgt)
+        #flattened_y   = y.reshape(y.shape[0] * y.shape[1], -1)
+        #flattened_tgt = tgt.flatten()
 
-        real_loss.backward()
-        fake_loss.backward()
-        out.backward()
+        nll_loss = loss.forward(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())
+
+        if GAN_mode:
+            D_fake = critic(torch.argmax(y, -1))
+            G_loss = - torch.mean(D_fake)
+            total_loss = nll_loss + G_loss
+        else:
+            total_loss = nll_loss
+
+        # generator update!
+        #if batch_num % 2 == 0:
+
+        opt.zero_grad()
+        total_loss.backward()
         opt.step()
 
-        if(lr_scheduler is not None):
+        # discriminator update!
+
+        if GAN_mode:
+
+            y = model(x)
+
+            #D_fake = critic(torch.argmax(y, -1).float())
+            D_real = critic(tgt)
+            D_fake = critic(torch.argmax(y, -1))
+
+            # During discriminator forward-backward-update
+            D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
+
+            critic_opt.zero_grad()
+            D_loss.backward()
+            critic_opt.step()
+
+            acc_dis_loss += float(D_loss)
+            acc_gen_loss += float(G_loss)
+
+        # classifier update!
+        classifier_pred = classifier(torch.argmax(y, -1))
+
+        BCE_loss = classifier_loss(torch.reshape(classifier_pred, (1, 1)), label)
+
+        classifier_opt.zero_grad()
+
+        BCE_loss.backward()
+        classifier_opt.step()
+
+
+
+        acc_nll_loss += float(nll_loss)
+        acc_dis_loss += float(D_loss)
+        acc_gen_loss += float(G_loss)
+        acc_cla_loss += float(BCE_loss)
+        
+        if critic_lr_scheduler is not None:
+            critic_lr_scheduler.step()
+
+        #for p in critic.parameters():
+        #    p.data.clamp_(-0.01, 0.01)
+
+        if lr_scheduler is not None:
             lr_scheduler.step()
 
         time_after = time.time()
@@ -56,11 +111,11 @@ def train_epoch(cur_epoch, model, critic, dataloader, loss, WGAN_loss, opt, lr_s
 
         if((batch_num+1) % print_modulus == 0):
             print(SEPERATOR)
-            print("Epoch", cur_epoch, " Batch", batch_num+1, "/", len(dataloader))
-            print("LR:", get_lr(opt))
-            print("Train loss:", float(out))
+            print(f"Epoch {cur_epoch}, Batch {batch_num+1}/{len(dataloader)}")
+            print(f"LR: {get_lr(opt)}")
+            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (batch_num + 1):.5f}, Generator loss: {acc_gen_loss / (batch_num + 1):.5f}, Classifier loss: {acc_cla_loss / (batch_num + 1):.5f}")
             print("")
-            print("Time (s):", time_took)
+            print(f"Time (s): {time_took}")
             print(SEPERATOR)
             print("")
 

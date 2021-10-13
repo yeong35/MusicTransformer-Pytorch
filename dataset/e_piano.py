@@ -31,6 +31,7 @@ class EPianoDataset(Dataset):
 
         fs = [os.path.join(root, f) for f in os.listdir(self.root)]
         self.data_files = [f for f in fs if os.path.isfile(f)]
+        self.label = [0 * len(self.data_files)]
 
     # __len__
     def __len__(self):
@@ -64,7 +65,7 @@ class EPianoDataset(Dataset):
 
         x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq)
 
-        return x, tgt
+        return x, tgt, torch.tensor(self.label).type(torch.FloatTensor)
 
 # process_midi
 def process_midi(raw_mid, max_seq, random_seq):
@@ -134,6 +135,21 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True):
     test_dataset = EPianoDataset(test_root, max_seq, random_seq)
 
     return train_dataset, val_dataset, test_dataset
+
+def create_pop909_datasets(dataset_root, max_seq, random_seq=True):
+    """
+    ----------
+    Author: Damon Gwinn
+    ----------
+    Creates train, evaluation, and test EPianoDataset objects for a pre-processed (preprocess_midi.py)
+    root containing train, val, and test folders.
+    ----------
+    """
+
+
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq)
+
+    return pop909_dataset
 
 # compute_epiano_accuracy
 def compute_epiano_accuracy(out, tgt):
