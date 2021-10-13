@@ -31,6 +31,7 @@ class EPianoDataset(Dataset):
 
         fs = [os.path.join(root, f) for f in os.listdir(self.root)]
         self.data_files = [f for f in fs if os.path.isfile(f)]
+        self.label = [0 * len(self.data_files)]
 
     # __len__
     def __len__(self):
@@ -64,7 +65,7 @@ class EPianoDataset(Dataset):
 
         x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq)
 
-        return x, tgt
+        return x, tgt, torch.tensor(self.label).type(torch.FloatTensor)
 
 # process_midi
 def process_midi(raw_mid, max_seq, random_seq):

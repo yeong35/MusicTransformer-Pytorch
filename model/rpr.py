@@ -436,7 +436,7 @@ def _get_valid_embedding(Er, len_q, len_k):
     ----------
     Author: Damon Gwinn
     ----------
-    Gets valid embeddings based on max length of RPR attention
+    Gets val embeddings based on max length of RPR attention
     ----------
     """
 
