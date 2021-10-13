@@ -5,3 +5,6 @@
 **.pickle
 **.pyc
 **/__pycache__/*
+dataset/*
+*/.ipynb_checkpoints/*
+third_party/*
