@@ -135,6 +135,21 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True):
 
     return train_dataset, val_dataset, test_dataset
 
+def create_pop909_datasets(dataset_root, max_seq, random_seq=True):
+    """
+    ----------
+    Author: Damon Gwinn
+    ----------
+    Creates train, evaluation, and test EPianoDataset objects for a pre-processed (preprocess_midi.py)
+    root containing train, val, and test folders.
+    ----------
+    """
+
+
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq)
+
+    return pop909_dataset
+
 # compute_epiano_accuracy
 def compute_epiano_accuracy(out, tgt):
     """
