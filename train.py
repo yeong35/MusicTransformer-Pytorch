@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy, create_pop909_datasets
+from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
 
 from model.music_transformer import MusicTransformer
 
@@ -69,6 +69,12 @@ def main():
     best_acc_file = os.path.join(results_folder, "best_acc_weights.pickle")
     best_loss_critic_file = os.path.join(results_folder, "best_loss_critic_weights.pickle")
     best_acc_critic_file = os.path.join(results_folder, "best_acc_critic_weights.pickle")
+
+    best_loss_classifier_file = os.path.join(
+        results_folder, "best_loss_classifier_weights.pickle")
+    best_acc_classifier_file = os.path.join(
+        results_folder, "best_acc_classifier_weights.pickle")
+
     best_text = os.path.join(results_folder, "best_epochs.txt")
 
     ##### Tensorboard #####
@@ -102,13 +108,13 @@ def main():
 
     # EY critic
     # num_prime = args.num_prime
-    critic = MusicDiscriminator(n_layers=args.n_layers, num_heads=args.num_heads,
-                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
+    critic = MusicDiscriminator(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
+                d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
-    classifier = MusicClassifier(n_layers=args.n_layers, num_heads=args.num_heads,
-                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
-                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+    classifier = MusicClassifier(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
+                                 d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
+                                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH
@@ -213,6 +219,7 @@ def main():
             best_eval_acc_epoch  = epoch+1
             torch.save(model.state_dict(), best_acc_file)
             torch.save(critic.state_dict(), best_acc_critic_file)
+            torch.save(classifier.state_dict(), best_acc_classifier_file)
             new_best = True
 
         if(eval_loss < best_eval_loss):
@@ -220,6 +227,7 @@ def main():
             best_eval_loss_epoch = epoch+1
             torch.save(model.state_dict(), best_loss_file)
             torch.save(critic.state_dict(), best_loss_critic_file)
+            torch.save(classifier.state_dict(), best_loss_classifier_file)
             new_best = True
 
         # Writing out new bests

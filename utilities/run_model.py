@@ -20,7 +20,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     ----------
     """
     GAN_mode = True
-    classifier_mode = False
+    classifier_mode = True
 
     model.train()
 
@@ -94,7 +94,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         if classifier_mode:
 
             # classifier update!
-            
+
             classifier_pred = classifier(tgt)
 
             class_loss = classifier_loss(classifier_pred, label.float())
@@ -111,8 +111,8 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
                 classifier_lr_scheduler.step()
 
 
-        acc_nll_loss += float(nll_loss)        
-    
+        acc_nll_loss += float(nll_loss)
+
 
         #for p in critic.parameters():
         #    p.data.clamp_(-0.01, 0.01)
@@ -126,7 +126,8 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         if((batch_num+1) % print_modulus == 0):
             print(SEPERATOR)
             print(f"Epoch {cur_epoch}, Batch {batch_num+1}/{len(dataloader)}")
-            print(f"LR: {get_lr(opt)}")
+            print(
+                f"Generator LR: {get_lr(opt)}, Discriminator LR: {get_lr(critic_opt)}, Classifier LR: {get_lr(classifier_opt)}")
             print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (batch_num + 1):.5f}, Generator loss: {acc_gen_loss / (batch_num + 1):.5f}, Classifier loss: {acc_cla_loss / (batch_num + 1):.5f}")
             print(f"Discriminator Accuracy: {float(acc_gan_accuracy) / (batch_num + 1):.5f}, Classifier Accuracy: {float(acc_class_accuracy) / (batch_num + 1):.5f}")
             print(f"Time (s): {time_took}")
