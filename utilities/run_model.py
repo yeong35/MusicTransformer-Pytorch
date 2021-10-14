@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 
+import numpy as np
+from sklearn.metrics import f1_score
+
 import time
 
 from .constants import *
@@ -20,7 +23,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     ----------
     """
     GAN_mode = True
-    classifier_mode = False
+    classifier_mode = True
 
     model.train()
 
@@ -105,7 +108,9 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
             acc_cla_loss += float(class_loss)
 
-            acc_class_accuracy += ((classifier_pred > 0.5).float() == label).float().mean()
+            # acc_class_accuracy += ((classifier_pred > 0.5).float() == label).float().mean()
+            acc_class_accuracy += f1_score(label.detach().cpu().numpy(), (classifier_pred.detach().cpu().numpy() > 0.5).astype(np.float64), zero_division = 1)
+
 
             if classifier_lr_scheduler is not None:
                 classifier_lr_scheduler.step()
