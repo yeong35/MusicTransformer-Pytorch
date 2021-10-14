@@ -81,12 +81,8 @@ def main():
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-    ctrain_dataset, cval_dataset, ctest_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
-    ptrain_dataset, pval_dataset, ptest_dataset = create_epiano_datasets(args.pop_input_dir, args.max_sequence)
+    train_dataset, val_dataset, test_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
 
-    train_dataset = ctrain_dataset + ptrain_dataset
-    val_dataset   = cval_dataset + pval_dataset
-    test_dataset  = ctest_dataset + ptest_dataset
 
     pop909_dataset = create_pop909_datasets('dataset/pop_pickle', args.max_sequence)
 
@@ -149,7 +145,7 @@ def main():
         train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
 
     ##### EY - WGAN Loss #####
-    classifier_loss_func = nn.BCELoss()
+    classifier_loss_func = nn.MSELoss()
 
     ##### Optimizer #####
     opt = Adam(model.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
@@ -187,7 +183,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
+            train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, classifier_lr_scheduler, args.print_modulus)
 
             print(SEPERATOR)
             print("Evaluating:")

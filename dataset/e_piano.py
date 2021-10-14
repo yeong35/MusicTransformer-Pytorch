@@ -24,14 +24,14 @@ class EPianoDataset(Dataset):
     ----------
     """
 
-    def __init__(self, root, max_seq=2048, random_seq=True):
+    def __init__(self, root, max_seq=2048, random_seq=True, label=0):
         self.root       = root
         self.max_seq    = max_seq
         self.random_seq = random_seq
 
         fs = [os.path.join(root, f) for f in os.listdir(self.root)]
         self.data_files = [f for f in fs if os.path.isfile(f)]
-        self.label = [0 * len(self.data_files)]
+        self.label = [label] * len(self.data_files)
 
     # __len__
     def __len__(self):
@@ -65,7 +65,8 @@ class EPianoDataset(Dataset):
 
         x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq)
 
-        return x, tgt, torch.tensor(self.label).type(torch.FloatTensor)
+
+        return x, tgt, torch.tensor(self.label[idx])
 
 # process_midi
 def process_midi(raw_mid, max_seq, random_seq):
@@ -130,9 +131,9 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True):
     val_root = os.path.join(dataset_root, "val")
     test_root = os.path.join(dataset_root, "test")
 
-    train_dataset = EPianoDataset(train_root, max_seq, random_seq)
-    val_dataset = EPianoDataset(val_root, max_seq, random_seq)
-    test_dataset = EPianoDataset(test_root, max_seq, random_seq)
+    train_dataset = EPianoDataset(train_root, max_seq, random_seq, label=0)
+    val_dataset = EPianoDataset(val_root, max_seq, random_seq, label=0)
+    test_dataset = EPianoDataset(test_root, max_seq, random_seq, label=0)
 
     return train_dataset, val_dataset, test_dataset
 
@@ -147,7 +148,7 @@ def create_pop909_datasets(dataset_root, max_seq, random_seq=True):
     """
 
 
-    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq)
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, label=1)
 
     return pop909_dataset
 
