@@ -41,11 +41,11 @@ class MusicDiscriminator(nn.Module):
         else:
             encoder_norm = LayerNorm(self.d_model)
             encoder_layer = TransformerEncoderLayerRPR(self.d_model, self.nhead, self.d_ff, self.dropout, er_len=self.max_seq)
-            encoder = TransformerEncoderRPR(encoder_layer, self.nlayers, encoder_norm)
+            self.encoder = TransformerEncoderRPR(encoder_layer, self.nlayers, encoder_norm)
             self.transformer = nn.Transformer(
                 d_model=self.d_model, nhead=self.nhead, num_encoder_layers=self.nlayers,
                 num_decoder_layers=0, dropout=self.dropout, # activation=self.ff_activ,
-                dim_feedforward=self.d_ff, custom_decoder=None, custom_encoder=encoder
+                dim_feedforward=self.d_ff, custom_decoder=None, custom_encoder=self.encoder
             )
 
         # Final output is a softmaxed linear layer
@@ -53,7 +53,7 @@ class MusicDiscriminator(nn.Module):
         self.sigmoid    = nn.Sigmoid()
 
     # forward
-    def forward(self, x):
+    def forward(self, x, mask=True):
         """
         ----------
         Author: Damon Gwinn
@@ -64,6 +64,11 @@ class MusicDiscriminator(nn.Module):
         ----------
         """
 
+        if(mask is True):
+            mask = self.transformer.generate_square_subsequent_mask(x.shape[1]).to(get_device())
+        else:
+            mask = None
+
         x = self.embedding(x)
 
         # Input shape is (max_seq, batch_size, d_model)
@@ -73,7 +78,7 @@ class MusicDiscriminator(nn.Module):
 
         # Since there are no true decoder layers, the tgt is unused
         # Pytorch wants src and tgt to have some equal dims however
-        x_out = self.transformer(src=x, tgt=x, src_mask=None)
+        x_out = self.encoder(src=x, mask=mask)
 
         # Back to (batch_size, max_seq, d_model)
         x_out = x_out.permute(1,0,2)

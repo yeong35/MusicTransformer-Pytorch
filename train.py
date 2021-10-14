@@ -14,7 +14,6 @@ from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
 from model.music_transformer import MusicTransformer
 
 from model.discriminator import MusicDiscriminator
-from model.classifier import MusicClassifier
 
 from model.loss import SmoothCrossEntropyLoss
 
@@ -112,7 +111,7 @@ def main():
                 d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
-    classifier = MusicClassifier(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
+    classifier = MusicDiscriminator(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
                                  d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
                                  max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
