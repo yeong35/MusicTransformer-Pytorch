@@ -11,7 +11,7 @@ from dataset.e_piano import compute_epiano_accuracy
 
 
 # train_epoch
-def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifier_loss, opt, critic_opt, classifier_opt, lr_scheduler=None, critic_lr_scheduler=None, classifier_lr_scheduler=None, print_modulus=1):
+def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifier_loss, opt, critic_opt, classifier_opt, lr_scheduler=None, critic_lr_scheduler=None, classifier_lr_scheduler=None, args=None):
     """
     ----------
     Author: Damon Gwinn
@@ -19,8 +19,8 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     Trains a single model epoch
     ----------
     """
-    GAN_mode = True
-    classifier_mode = True
+    GAN_mode = args.gan
+    classifier_mode = args.creative
 
     model.train()
 
@@ -34,6 +34,10 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     acc_class_accuracy = 0
     acc_creativity = 0
 
+    acc_pitch_accuracy = 0
+
+    critic_count = 0
+
     for batch_num, batch in enumerate(dataloader):
         time_before = time.time()
 
@@ -43,6 +47,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         y = model(x)
 
+        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt))
 
         # During discriminator forward-backward-update
         # D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
@@ -54,7 +59,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         nll_loss = loss(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())
 
-        if classifier_mode:
+        if batch_num % 5 == 0:
 
             # classifier update!
 
@@ -73,7 +78,6 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
             if classifier_lr_scheduler is not None:
                 classifier_lr_scheduler.step()
 
-
         if GAN_mode:
             D_fake = critic(torch.argmax(y, -1))
             G_loss = - torch.mean(D_fake)
@@ -84,23 +88,29 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         if classifier_mode:
             generated_pred = classifier(torch.argmax(y, -1))
             creative_loss = classifier_loss(generated_pred, torch.ones(label.shape).to(get_device()) * 0.5)
-            acc_cre_loss += float(creative_loss)
+            acc_cre_loss += float(creative_loss.detach().cpu())
 
-            acc_creativity += 0.5 - torch.abs(generated_pred - 0.5).mean()
+            acc_creativity += 0.5 - torch.abs(generated_pred.detach().cpu() - 0.5).mean()
 
+            
             total_loss += creative_loss
 
         # generator update!
         #if batch_num % 2 == 0:
 
         opt.zero_grad()
-        total_loss.backward()
-        opt.step()    
+
+        if not torch.isnan(total_loss).any():
+            total_loss.backward()
+
+        opt.step()
+
+        acc_nll_loss += float(nll_loss.detach().cpu())
 
 
         # discriminator update!
 
-        if GAN_mode:
+        if GAN_mode and batch_num % 5 == 0:
 
             y = model(x)
 
@@ -115,16 +125,21 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
             D_loss.backward()
             critic_opt.step()
 
-            acc_dis_loss += float(D_loss)
-            acc_gen_loss += float(G_loss)
+            acc_dis_loss += float(D_loss.detach().cpu())
+            acc_gen_loss += float(G_loss.detach().cpu())
 
-            acc_gan_accuracy += ((D_real > 0.5).float().mean() + (D_fake < 0.5).float().mean()) / 2
+            acc_gan_accuracy += ((D_real > 0.5).float().mean() + (D_fake < 0.5).float().mean()).detach().cpu() / 2
 
             if critic_lr_scheduler is not None:
                 critic_lr_scheduler.step()
 
+            critic_count += 1
 
-        acc_nll_loss += float(nll_loss)
+
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        torch.nn.utils.clip_grad_norm_(critic.parameters(), 0.1)
+        torch.nn.utils.clip_grad_norm_(classifier.parameters(), 0.1)
 
 
         #for p in critic.parameters():
@@ -136,18 +151,18 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         time_after = time.time()
         time_took = time_after - time_before
 
-        if((batch_num+1) % print_modulus == 0):
+        if((batch_num+1) % args.print_modulus == 0):
             print(SEPERATOR)
             print(f"Epoch {cur_epoch}, Batch {batch_num+1}/{len(dataloader)}")
             print(
                 f"Generator LR: {get_lr(opt)}, Discriminator LR: {get_lr(critic_opt)}, Classifier LR: {get_lr(classifier_opt)}")
-            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (batch_num + 1):.5f}, Generator loss: {acc_gen_loss / (batch_num + 1):.5f}, Classifier loss: {acc_cla_loss / (batch_num + 1):.5f}, Creative loss: {acc_cre_loss / (batch_num + 1):.5f}")
-            print(f"Discriminator Accuracy: {float(acc_gan_accuracy) / (batch_num + 1):.5f}, Classifier Accuracy: {float(acc_class_accuracy) / (batch_num + 1):.5f}, Creativity: {float(acc_creativity) / (batch_num + 1):.5f}")
+            print(f"Total Train loss: {float(total_loss):.5f}, NLL loss: {acc_nll_loss / (batch_num + 1):.5f}, Discriminator loss: {acc_dis_loss / (critic_count):.5f}, Generator loss: {acc_gen_loss / (critic_count):.5f}, Classifier loss: {acc_cla_loss / (critic_count):.5f}, Creative loss: {acc_cre_loss / (batch_num + 1):.5f}")
+            print(f"Discriminator Accuracy: {float(acc_gan_accuracy) / (critic_count):.5f}, Classifier Accuracy: {float(acc_class_accuracy) / (critic_count):.5f}, Creativity: {float(acc_creativity) / (batch_num + 1):.5f}")
             print(f"Time (s): {time_took}")
             print(SEPERATOR)
             print("")
 
-    return
+    return acc_nll_loss / len(dataloader), acc_pitch_accuracy / len(dataloader), acc_dis_loss / critic_count, acc_gen_loss / critic_count, acc_cre_loss / len(dataloader), float(acc_gan_accuracy) / critic_count, float(acc_class_accuracy) / critic_count, float(acc_creativity) / len(dataloader)
 
 # eval_model
 def eval_model(model, dataloader, loss):

@@ -18,11 +18,14 @@ def parse_train_args():
     parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-output_dir", type=str, default="./saved_models", help="Folder to save model weights. Saves one every epoch")
     parser.add_argument("-weight_modulus", type=int, default=10, help="How often to save epoch weights (ex: value of 10 means save every 10 epochs)")
-    parser.add_argument("-print_modulus", type=int, default=10, help="How often to print train results for a batch (batch loss, learn rate, etc.)")
+    parser.add_argument("-print_modulus", type=int, default=50, help="How often to print train results for a batch (batch loss, learn rate, etc.)")
 
     parser.add_argument("-n_workers", type=int, default=4, help="Number of threads for the dataloader")
     parser.add_argument("--force_cpu", action="store_true", help="Forces model to run on a cpu even when gpu is available")
     parser.add_argument("--no_tensorboard", action="store_true", help="Turns off tensorboard result reporting")
+
+    parser.add_argument("--gan", action="store_true", help="use generative adversarial training")
+    parser.add_argument("--creative", action="store_true", help="creative learning")
 
     parser.add_argument("-continue_weights", type=str, default=None, help="Model weights to continue training based on")
     parser.add_argument("-continue_epoch", type=int, default=None, help="Epoch the continue_weights model was at")

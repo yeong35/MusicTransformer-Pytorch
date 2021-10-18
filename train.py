@@ -47,7 +47,7 @@ def main():
         print("WARNING: Forced CPU usage, expect model to perform slower")
         print("")
 
-    eventid = datetime.now().strftime('MusicTransformer-%Y.%m.%d-%H:%M:%S')
+    eventid = f"{datetime.now().strftime('MusicTransformer-%Y.%m.%d')}_gan_{args.gan}_creative_{args.creative}"
 
     args.output_dir = args.output_dir  + "/" +  eventid
 
@@ -180,7 +180,7 @@ def main():
     ##### TRAIN LOOP #####
     for epoch in range(start_epoch, args.epochs):
         # Baseline has no training and acts as a base loss and accuracy (epoch 0 in a sense)
-        if(epoch > BASELINE_EPOCH):
+        if(epoch >= BASELINE_EPOCH):
             print(SEPERATOR)
             print("NEW EPOCH:", epoch+1)
             print(SEPERATOR)
@@ -188,7 +188,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, classifier_lr_scheduler, args.print_modulus)
+            train_loss, train_acc, dis_loss, gen_loss, cre_loss, gan_accuracy, class_accuracy, creativity = train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, classifier_lr_scheduler, args)
 
             print(SEPERATOR)
             print("Evaluating:")
@@ -197,7 +197,7 @@ def main():
             print("Baseline model evaluation (Epoch 0):")
 
         # Eval
-        train_loss, train_acc = eval_model(model, train_loader, train_loss_func)
+        # train_loss, train_acc = eval_model(model, train_loader, train_loss_func)
         eval_loss, eval_acc = eval_model(model, test_loader, eval_loss_func)
 
         # Learn rate
@@ -245,6 +245,14 @@ def main():
             tensorboard_summary.add_scalar("Accuracy/train", train_acc, global_step=epoch+1)
             tensorboard_summary.add_scalar("Accuracy/eval", eval_acc, global_step=epoch+1)
             tensorboard_summary.add_scalar("Learn_rate/train", lr, global_step=epoch+1)
+
+            tensorboard_summary.add_scalar("Critic_loss/train", dis_loss, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Gen_loss/train", gen_loss, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Creativity_loss/train", cre_loss, global_step=epoch+1)
+            tensorboard_summary.add_scalar("GAN_accuracy/train", gan_accuracy, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Class_accuracy/train", class_accuracy, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Creativity/train", creativity, global_step=epoch+1)
+
             tensorboard_summary.flush()
 
         if((epoch+1) % args.weight_modulus == 0):
