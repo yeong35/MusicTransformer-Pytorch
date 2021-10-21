@@ -47,7 +47,7 @@ def main():
         print("WARNING: Forced CPU usage, expect model to perform slower")
         print("")
 
-    eventid = f"{datetime.now().strftime('MusicTransformer-%Y.%m.%d')}_gan_{args.gan}_creative_{args.creative}"
+    eventid = f"{datetime.now().strftime('MusicTransformer-%Y.%m.%d')}_gan_{args.gan}_creative_{args.creative}_ce_{args.ce_smoothing}"
 
     args.output_dir = args.output_dir  + "/" +  eventid
 
@@ -114,6 +114,10 @@ def main():
     classifier = MusicDiscriminator(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
                                  d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
                                  max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+
+
+    if args.creative:
+        classifier.load_state_dict(torch.load('best_classifier_acc_0.9883.pickle'))
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import time
 
@@ -20,7 +21,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     ----------
     """
     GAN_mode = args.gan
-    classifier_mode = args.creative
+    creative_mode = args.creative
 
     model.train()
 
@@ -49,54 +50,28 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt))
 
-        # During discriminator forward-backward-update
-        # D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
-
-        # During generator forward-backward-update
-
-        #flattened_y   = y.reshape(y.shape[0] * y.shape[1], -1)
-        #flattened_tgt = tgt.flatten()
-
         nll_loss = loss(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())
 
-        if batch_num % 5 == 0:
+        tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
 
-            # classifier update!
-
-            classifier_pred = classifier(tgt)
-
-            class_loss = classifier_loss(classifier_pred, label.float())
-
-            classifier_opt.zero_grad()
-            class_loss.backward()
-            classifier_opt.step()
-
-            acc_cla_loss += float(class_loss)
-
-            acc_class_accuracy += ((classifier_pred > 0.5).float() == label).float().mean()
-
-            if classifier_lr_scheduler is not None:
-                classifier_lr_scheduler.step()
 
         if GAN_mode:
-            D_fake = critic(torch.argmax(y, -1))
+            D_fake = critic(y)
             G_loss = - torch.mean(D_fake)
             total_loss = nll_loss + G_loss
         else:
             total_loss = nll_loss
 
-        if classifier_mode:
-            generated_pred = classifier(torch.argmax(y, -1))
-            creative_loss = classifier_loss(generated_pred, torch.ones(label.shape).to(get_device()) * 0.5)
+        if creative_mode:
+            generated_pred = classifier(y)
+            #creative_loss = classifier_loss(generated_pred, torch.ones(label.shape).to(get_device()) * 0.5)
+            creative_loss = - (torch.log(generated_pred) + torch.log(1.0 - generated_pred)).mean()
+
             acc_cre_loss += float(creative_loss.detach().cpu())
 
             acc_creativity += 0.5 - torch.abs(generated_pred.detach().cpu() - 0.5).mean()
 
-            
             total_loss += creative_loss
-
-        # generator update!
-        #if batch_num % 2 == 0:
 
         opt.zero_grad()
 
@@ -110,13 +85,15 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         # discriminator update!
 
-        if GAN_mode and batch_num % 5 == 0:
+        if GAN_mode:
 
             y = model(x)
 
             #D_fake = critic(torch.argmax(y, -1).float())
+            
+
             D_real = critic(tgt)
-            D_fake = critic(torch.argmax(y, -1))
+            D_fake = critic(y)
 
             # During discriminator forward-backward-update
             D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
@@ -136,10 +113,8 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
             critic_count += 1
 
 
-
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         torch.nn.utils.clip_grad_norm_(critic.parameters(), 0.1)
-        torch.nn.utils.clip_grad_norm_(classifier.parameters(), 0.1)
 
 
         #for p in critic.parameters():
@@ -150,6 +125,9 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         time_after = time.time()
         time_took = time_after - time_before
+
+        if critic_count == 0:
+            critic_count = 1
 
         if((batch_num+1) % args.print_modulus == 0):
             print(SEPERATOR)

@@ -23,7 +23,9 @@ class MusicDiscriminator(nn.Module):
         self.rpr        = rpr
 
         # Input embedding
-        self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
+        #self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
+
+        self.embedding = nn.Linear(VOCAB_SIZE, self.d_model, bias=False)
 
         # Positional encoding
         self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
