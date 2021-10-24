@@ -45,7 +45,7 @@ def main():
 
     if(f.isdigit()):
         idx = int(f)
-        primer, _  = dataset[idx]
+        primer, _, _  = dataset[idx]
         primer = primer.to(get_device())
 
         print("Using primer index:", idx, "(", dataset.data_files[idx], ")")
