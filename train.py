@@ -9,12 +9,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy, create_pop909_datasets
+from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
 
 from model.music_transformer import MusicTransformer
 
 from model.discriminator import MusicDiscriminator
-from model.classifier import MusicClassifier
 
 from model.loss import SmoothCrossEntropyLoss
 
@@ -48,7 +47,7 @@ def main():
         print("WARNING: Forced CPU usage, expect model to perform slower")
         print("")
 
-    eventid = datetime.now().strftime('MusicTransformer-%Y.%m.%d-%H:%M:%S')
+    eventid = f"{datetime.now().strftime('MusicTransformer-%Y.%m.%d')}_gan_{args.gan}_creative_{args.creative}_ce_{args.ce_smoothing}"
 
     args.output_dir = args.output_dir  + "/" +  eventid
 
@@ -69,6 +68,12 @@ def main():
     best_acc_file = os.path.join(results_folder, "best_acc_weights.pickle")
     best_loss_critic_file = os.path.join(results_folder, "best_loss_critic_weights.pickle")
     best_acc_critic_file = os.path.join(results_folder, "best_acc_critic_weights.pickle")
+
+    best_loss_classifier_file = os.path.join(
+        results_folder, "best_loss_classifier_weights.pickle")
+    best_acc_classifier_file = os.path.join(
+        results_folder, "best_acc_classifier_weights.pickle")
+
     best_text = os.path.join(results_folder, "best_epochs.txt")
 
     ##### Tensorboard #####
@@ -81,12 +86,8 @@ def main():
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-    ctrain_dataset, cval_dataset, ctest_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
-    ptrain_dataset, pval_dataset, ptest_dataset = create_epiano_datasets(args.pop_input_dir, args.max_sequence)
+    train_dataset, val_dataset, test_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
 
-    train_dataset = ctrain_dataset + ptrain_dataset
-    val_dataset   = cval_dataset + pval_dataset
-    test_dataset  = ctest_dataset + ptest_dataset
 
     pop909_dataset = create_pop909_datasets('dataset/pop_pickle', args.max_sequence)
 
@@ -106,13 +107,17 @@ def main():
 
     # EY critic
     # num_prime = args.num_prime
-    critic = MusicDiscriminator(n_layers=args.n_layers, num_heads=args.num_heads,
-                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
+    critic = MusicDiscriminator(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
+                d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
 
-    classifier = MusicClassifier(n_layers=args.n_layers, num_heads=args.num_heads,
-                d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
-                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+    classifier = MusicDiscriminator(n_layers=args.n_layers // 2, num_heads=args.num_heads // 2,
+                                 d_model=args.d_model // 2, dim_feedforward=args.dim_feedforward // 2, dropout=args.dropout,
+                                 max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+
+
+    if args.creative:
+        classifier.load_state_dict(torch.load('best_classifier_acc_0.9883.pickle'))
 
     ##### Continuing from previous training session #####
     start_epoch = BASELINE_EPOCH
@@ -149,7 +154,7 @@ def main():
         train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
 
     ##### EY - WGAN Loss #####
-    classifier_loss_func = nn.BCELoss()
+    classifier_loss_func = nn.MSELoss()
 
     ##### Optimizer #####
     opt = Adam(model.parameters(), lr=lr, betas=(ADAM_BETA_1, ADAM_BETA_2), eps=ADAM_EPSILON)
@@ -179,7 +184,7 @@ def main():
     ##### TRAIN LOOP #####
     for epoch in range(start_epoch, args.epochs):
         # Baseline has no training and acts as a base loss and accuracy (epoch 0 in a sense)
-        if(epoch > BASELINE_EPOCH):
+        if(epoch >= BASELINE_EPOCH):
             print(SEPERATOR)
             print("NEW EPOCH:", epoch+1)
             print(SEPERATOR)
@@ -187,7 +192,7 @@ def main():
 
             # Train
             # EY 고쳐야 할 부분의 시작
-            train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, args.print_modulus)
+            train_loss, train_acc, dis_loss, gen_loss, cre_loss, gan_accuracy, class_accuracy, creativity = train_epoch(epoch+1, model, critic, classifier, train_loader, train_loss_func, classifier_loss_func, opt, critic_opt, classifier_opt, lr_scheduler, critic_lr_scheduler, classifier_lr_scheduler, args)
 
             print(SEPERATOR)
             print("Evaluating:")
@@ -196,7 +201,7 @@ def main():
             print("Baseline model evaluation (Epoch 0):")
 
         # Eval
-        train_loss, train_acc = eval_model(model, train_loader, train_loss_func)
+        # train_loss, train_acc = eval_model(model, train_loader, train_loss_func)
         eval_loss, eval_acc = eval_model(model, test_loader, eval_loss_func)
 
         # Learn rate
@@ -217,6 +222,7 @@ def main():
             best_eval_acc_epoch  = epoch+1
             torch.save(model.state_dict(), best_acc_file)
             torch.save(critic.state_dict(), best_acc_critic_file)
+            torch.save(classifier.state_dict(), best_acc_classifier_file)
             new_best = True
 
         if(eval_loss < best_eval_loss):
@@ -224,6 +230,7 @@ def main():
             best_eval_loss_epoch = epoch+1
             torch.save(model.state_dict(), best_loss_file)
             torch.save(critic.state_dict(), best_loss_critic_file)
+            torch.save(classifier.state_dict(), best_loss_classifier_file)
             new_best = True
 
         # Writing out new bests
@@ -242,6 +249,14 @@ def main():
             tensorboard_summary.add_scalar("Accuracy/train", train_acc, global_step=epoch+1)
             tensorboard_summary.add_scalar("Accuracy/eval", eval_acc, global_step=epoch+1)
             tensorboard_summary.add_scalar("Learn_rate/train", lr, global_step=epoch+1)
+
+            tensorboard_summary.add_scalar("Critic_loss/train", dis_loss, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Gen_loss/train", gen_loss, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Creativity_loss/train", cre_loss, global_step=epoch+1)
+            tensorboard_summary.add_scalar("GAN_accuracy/train", gan_accuracy, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Class_accuracy/train", class_accuracy, global_step=epoch+1)
+            tensorboard_summary.add_scalar("Creativity/train", creativity, global_step=epoch+1)
+
             tensorboard_summary.flush()
 
         if((epoch+1) % args.weight_modulus == 0):
