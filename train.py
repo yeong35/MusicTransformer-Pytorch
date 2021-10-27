@@ -14,6 +14,7 @@ from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
 from model.music_transformer import MusicTransformer
 
 from model.discriminator import MusicDiscriminator
+from model.classifier import CNNDiscriminator
 
 from model.loss import SmoothCrossEntropyLoss
 
@@ -25,6 +26,9 @@ from utilities.argument_funcs import parse_train_args, print_train_args, write_m
 from utilities.run_model import train_epoch, eval_model
 
 CSV_HEADER = ["Epoch", "Learn rate", "Avg Train loss", "Train Accuracy", "Avg Eval loss", "Eval accuracy"]
+
+dis_filter_sizes = [2, 3, 4, 5]
+dis_num_filters = [300, 300, 300, 300]
 
 # Baseline is an untrained epoch that we evaluate as a baseline loss and accuracy
 BASELINE_EPOCH = -1

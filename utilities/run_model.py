@@ -40,6 +40,9 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     critic_count = 0
 
     for batch_num, batch in enumerate(dataloader):
+
+        total_loss = 0
+
         time_before = time.time()
 
         x   = batch[0].to(get_device())
@@ -50,20 +53,23 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt))
 
+        soft_y = F.gumbel_softmax(y, tau=1, hard=False)
+        hard_y = F.gumbel_softmax(y, tau=1, hard=True)
+
         nll_loss = loss(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())
+
+        total_loss += nll_loss
 
         tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
 
 
         if GAN_mode:
-            D_fake = critic(y)
+            D_fake = critic(hard_y)
             G_loss = - torch.mean(D_fake)
-            total_loss = nll_loss + G_loss
-        else:
-            total_loss = nll_loss
+            total_loss += G_loss
 
         if creative_mode:
-            generated_pred = classifier(y)
+            generated_pred = classifier(hard_y)
             #creative_loss = classifier_loss(generated_pred, torch.ones(label.shape).to(get_device()) * 0.5)
             creative_loss = - (torch.log(generated_pred) + torch.log(1.0 - generated_pred)).mean()
 
@@ -89,11 +95,13 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
             y = model(x)
 
+            hard_y = F.gumbel_softmax(y, tau=1, hard=True)
+
             #D_fake = critic(torch.argmax(y, -1).float())
             
 
             D_real = critic(tgt)
-            D_fake = critic(y)
+            D_fake = critic(hard_y)
 
             # During discriminator forward-backward-update
             D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
