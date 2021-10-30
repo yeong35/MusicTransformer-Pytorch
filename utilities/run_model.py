@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import grad, Variable
 
 import time
 
@@ -77,6 +78,8 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
             acc_creativity += 0.5 - torch.abs(generated_pred.detach().cpu() - 0.5).mean()
 
+            acc_class_accuracy += ((generated_pred > 0.5) * label).float().mean()
+
             total_loss += creative_loss
 
         opt.zero_grad()
@@ -104,7 +107,9 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
             D_fake = critic(hard_y)
 
             # During discriminator forward-backward-update
-            D_loss = - (torch.mean(D_real) - torch.mean(D_fake))
+            gradient_penalty = _gradient_penalty(tgt, soft_y, critic)
+
+            D_loss = - (torch.mean(D_real) - torch.mean(D_fake)) + gradient_penalty
 
             critic_opt.zero_grad()
             D_loss.backward()
@@ -187,3 +192,34 @@ def eval_model(model, dataloader, loss):
         avg_acc     = sum_acc / n_test
 
     return avg_loss, avg_acc
+
+def _gradient_penalty(real_data, generated_data, critic, gp_weight=10):
+    batch_size = real_data.size()[0]
+
+    # Calculate interpolation
+    alpha = torch.rand(batch_size, 1, 1)
+    alpha = alpha.expand_as(real_data).to(get_device())
+
+    interpolated = alpha * real_data.data + (1 - alpha) * generated_data.data
+    interpolated = Variable(interpolated, requires_grad=True).to(get_device())
+    #if self.use_cuda:
+    #    interpolated = interpolated.cuda()
+
+    # Calculate probability of interpolated examples
+    prob_interpolated = critic(interpolated)
+
+    # Calculate gradients of probabilities with respect to examples
+    gradients = grad(outputs=prob_interpolated, inputs=interpolated,
+                            grad_outputs=torch.ones(prob_interpolated.size()).to(get_device()),
+                            create_graph=True, retain_graph=True)[0]
+
+    # Gradients have shape (batch_size, num_channels, img_width, img_height),
+    # so flatten to easily take norm per example in batch
+    gradients = gradients.view(batch_size, -1)
+
+    # Derivatives of the gradient close to 0 can cause problems because of
+    # the square root, so manually calculate norm and add epsilon
+    gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
+
+    # Return gradient penalty
+    return gp_weight * ((gradients_norm - 1) ** 2).mean()
