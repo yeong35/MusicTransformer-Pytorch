@@ -9,6 +9,8 @@ from utilities.device import get_device
 from .positional_encoding import PositionalEncoding
 from .rpr import TransformerEncoderRPR, TransformerEncoderLayerRPR
 
+
+
 class MusicDiscriminator(nn.Module):
     def __init__(self, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
                  dropout=0.1, max_sequence=2048, rpr=False):
@@ -27,6 +29,18 @@ class MusicDiscriminator(nn.Module):
 
         self.embedding = nn.Linear(VOCAB_SIZE, self.d_model, bias=False)
 
+        #self.embeddings = nn.Linear(VOCAB_SIZE, self.d_model, bias=False)
+        
+        #self.emb_dim_single = int(embed_dim / num_rep)
+
+        #self.convs = nn.ModuleList([
+        #    nn.Conv2d(1, n, (f, self.emb_dim_single), stride=(1, self.emb_dim_single)) for (n, f) in
+        #    zip(dis_num_filters, dis_filter_sizes)
+        #])
+
+        #self.highway = nn.Linear(self.feature_dim, self.feature_dim)
+        
+        
         # Positional encoding
         self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
 
