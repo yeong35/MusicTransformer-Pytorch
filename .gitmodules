@@ -1,3 +1,6 @@
 [submodule "third_party/midi_processor"]
 	path = third_party/midi_processor
 	url = https://github.com/jason9693/midi-neural-processor
+[submodule "mgeval"]
+	path = mgeval
+	url = https://github.com/RichardYang40148/mgeval
