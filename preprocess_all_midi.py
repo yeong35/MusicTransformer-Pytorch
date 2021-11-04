@@ -1,7 +1,6 @@
 import argparse
 import os
 import pickle
-import json
 
 import third_party.midi_processor.processor as midi_processor
 
@@ -57,7 +56,7 @@ def parse_args():
 def main():
     """
     ----------
-    Author: Damon Gwinn
+    Author: Damon Gwinn, EY
     ----------
     Entry point. Preprocesses maestro and saved midi to specified output folder.
     ----------
@@ -67,7 +66,10 @@ def main():
     maestro_root    = args.maestro_root
     output_dir      = args.output_dir
 
+    print("maestro root :", maestro_root)
     print("Preprocessing midi files and saving to", output_dir)
+
+
     prep_midi(maestro_root, output_dir)
     print("Done!")
     print("")
