@@ -9,7 +9,8 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
+# from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
+from dataset.e_piano_condition import create_epiano_datasets, create_pop909_datasets    # CTRL condition
 
 from model.music_transformer import MusicTransformer
 
@@ -90,15 +91,27 @@ def main():
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-    train_dataset, val_dataset, test_dataset = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
+
+    classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
+
+    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence)
+    pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset, [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)], generator=torch.Generator().manual_seed(42))
 
 
-    pop909_dataset = create_pop909_datasets('dataset/pop_pickle', args.max_sequence)
+    if args.data == 'both':
+        print("Dataset: both")
+        train_dataset = torch.utils.data.ConcatDataset([ classic_train, pop_train])
+        val_dataset = torch.utils.data.ConcatDataset([ classic_val, pop_valid])
+    elif args.data == 'classic':
+        print("Dataset: classic")
+        train_dataset = torch.utils.data.ConcatDataset([ classic_train])
+        val_dataset = torch.utils.data.ConcatDataset([ classic_val])
+    else:
+        print("Dataset: pop")
+        train_dataset = torch.utils.data.ConcatDataset([pop_train])
+        val_dataset = torch.utils.data.ConcatDataset([pop_valid])
 
-    train_set, val_set, test_set = torch.utils.data.random_split(pop909_dataset, [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)])
-
-    train_dataset = torch.utils.data.ConcatDataset([train_dataset, train_set])
-
+    test_dataset = torch.utils.data.ConcatDataset([classic_test, pop_test])
 
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.n_workers, shuffle=True)
@@ -206,7 +219,7 @@ def main():
 
         # Eval
         # train_loss, train_acc = eval_model(model, train_loader, train_loss_func)
-        eval_loss, eval_acc = eval_model(model, test_loader, eval_loss_func)
+        eval_loss, eval_acc = eval_model(model, val_loader, eval_loss_func)
 
         # Learn rate
         lr = get_lr(opt)

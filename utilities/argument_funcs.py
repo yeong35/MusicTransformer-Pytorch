@@ -14,6 +14,7 @@ def parse_train_args():
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("-both", type=str, default="both", help="using dataset, both = (classic, pop)")
     parser.add_argument("-classic_input_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-output_dir", type=str, default="./saved_models", help="Folder to save model weights. Saves one every epoch")
@@ -33,7 +34,7 @@ def parse_train_args():
     parser.add_argument("-lr", type=float, default=None, help="Constant learn rate. Leave as None for a custom scheduler.")
     parser.add_argument("-ce_smoothing", type=float, default=0.0, help="Smoothing parameter for smoothed cross entropy loss (defaults to no smoothing)")
     parser.add_argument("-batch_size", type=int, default=2, help="Batch size to use")
-    parser.add_argument("-epochs", type=int, default=100, help="Number of epochs to use")
+    parser.add_argument("-epochs", type=int, default=300, help="Number of epochs to use")
 
     parser.add_argument("--rpr", action="store_true", help="Use a modified Transformer for Relative Position Representations")
     parser.add_argument("-max_sequence", type=int, default=1536, help="Maximum midi sequence to consider")
@@ -100,6 +101,7 @@ def parse_eval_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-dataset_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
+    parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-model_weights", type=str, default="./saved_models/model.pickle", help="Pickled model weights file saved with torch.save and model.state_dict()")
     parser.add_argument("-n_workers", type=int, default=1, help="Number of threads for the dataloader")
     parser.add_argument("--force_cpu", action="store_true", help="Forces model to run on a cpu even when gpu is available")
@@ -107,7 +109,7 @@ def parse_eval_args():
     parser.add_argument("-batch_size", type=int, default=1, help="Batch size to use")
 
     parser.add_argument("--rpr", action="store_true", help="Use a modified Transformer for Relative Position Representations")
-    parser.add_argument("-max_sequence", type=int, default=2048, help="Maximum midi sequence to consider in the model")
+    parser.add_argument("-max_sequence", type=int, default=1536, help="Maximum midi sequence to consider in the model")
     parser.add_argument("-n_layers", type=int, default=6, help="Number of decoder layers to use")
     parser.add_argument("-num_heads", type=int, default=8, help="Number of heads to use for multi-head attention")
     parser.add_argument("-d_model", type=int, default=512, help="Dimension of the model (output dim of embedding layers, etc.)")
@@ -128,6 +130,7 @@ def print_eval_args(args):
 
     print(SEPERATOR)
     print("dataset_dir:", args.dataset_dir)
+    print("pop_dataset_dir", args.pop_input_dir)
     print("model_weights:", args.model_weights)
     print("n_workers:", args.n_workers)
     print("force_cpu:", args.force_cpu)
@@ -167,7 +170,7 @@ def parse_generate_args():
     parser.add_argument("-beam", type=int, default=0, help="Beam search k. 0 for random probability sample and 1 for greedy")
 
     parser.add_argument("--rpr", action="store_true", help="Use a modified Transformer for Relative Position Representations")
-    parser.add_argument("-max_sequence", type=int, default=2048, help="Maximum midi sequence to consider")
+    parser.add_argument("-max_sequence", type=int, default=1536, help="Maximum midi sequence to consider")
     parser.add_argument("-n_layers", type=int, default=6, help="Number of decoder layers to use")
     parser.add_argument("-num_heads", type=int, default=8, help="Number of heads to use for multi-head attention")
     parser.add_argument("-d_model", type=int, default=512, help="Dimension of the model (output dim of embedding layers, etc.)")
