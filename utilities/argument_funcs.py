@@ -14,7 +14,7 @@ def parse_train_args():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-both", type=str, default="both", help="using dataset, both = (classic, pop)")
+    parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
     parser.add_argument("-classic_input_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-output_dir", type=str, default="./saved_models", help="Folder to save model weights. Saves one every epoch")
