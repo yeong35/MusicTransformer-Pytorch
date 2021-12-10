@@ -29,7 +29,7 @@ class MusicTransformer(nn.Module):
     """
 
     def __init__(self, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
-                 dropout=0.1, max_sequence=2048, rpr=False):
+                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False):
         super(MusicTransformer, self).__init__()
 
         self.dummy      = DummyDecoder()
@@ -41,9 +41,13 @@ class MusicTransformer(nn.Module):
         self.dropout    = dropout
         self.max_seq    = max_sequence
         self.rpr        = rpr
+        self.condition_token = condition_token
 
         # Input embedding
-        self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
+        if(not self.condition_token):
+            self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
+        else:
+            self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE, self.d_model)
 
         # Positional encoding
         self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
