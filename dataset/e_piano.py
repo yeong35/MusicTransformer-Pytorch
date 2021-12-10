@@ -24,10 +24,11 @@ class EPianoDataset(Dataset):
     ----------
     """
 
-    def __init__(self, root, max_seq=2048, random_seq=True, label=0):
+    def __init__(self, root, max_seq=2048, random_seq=True, label=0, condition_token = False):
         self.root       = root
         self.max_seq    = max_seq
         self.random_seq = random_seq
+        self.condition_token = condition_token
 
         fs = [os.path.join(root, f) for f in os.listdir(self.root)]
         self.data_files = [f for f in fs if os.path.isfile(f)]
@@ -63,13 +64,13 @@ class EPianoDataset(Dataset):
         raw_mid     = torch.tensor(pickle.load(i_stream), dtype=TORCH_LABEL_TYPE, device=cpu_device())
         i_stream.close()
 
-        x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq)
+        x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq, self.condition_token, self.label)
 
 
         return x, tgt, torch.tensor(self.label[idx])
 
 # process_midi
-def process_midi(raw_mid, max_seq, random_seq):
+def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = None):
     """
     ----------
     Author: Damon Gwinn
@@ -106,6 +107,12 @@ def process_midi(raw_mid, max_seq, random_seq):
 
         data = raw_mid[start:end]
 
+        if not condition_token:
+            if label == 0:
+                data = torch.tensor(CONDITION_CLASSIC) + raw_mid[start:end]
+            elif label == 1:
+                data = torch.tensor(CONDITION_POP) + raw_mid[start:end]
+
         x = data[:max_seq]
         tgt = data[1:full_seq]
 
@@ -117,7 +124,7 @@ def process_midi(raw_mid, max_seq, random_seq):
 
 
 # create_epiano_datasets
-def create_epiano_datasets(dataset_root, max_seq, random_seq=True):
+def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False):
     """
     ----------
     Author: Damon Gwinn
@@ -131,13 +138,13 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True):
     val_root = os.path.join(dataset_root, "val")
     test_root = os.path.join(dataset_root, "test")
 
-    train_dataset = EPianoDataset(train_root, max_seq, random_seq, label=0)
-    val_dataset = EPianoDataset(val_root, max_seq, random_seq, label=0)
-    test_dataset = EPianoDataset(test_root, max_seq, random_seq, label=0)
+    train_dataset = EPianoDataset(train_root, max_seq, random_seq, label=0, condition_token=False)
+    val_dataset = EPianoDataset(val_root, max_seq, random_seq, label=0, condition_token=False)
+    test_dataset = EPianoDataset(test_root, max_seq, random_seq, label=0, condition_token=False)
 
     return train_dataset, val_dataset, test_dataset
 
-def create_pop909_datasets(dataset_root, max_seq, random_seq=True):
+def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False):
     """
     ----------
     Author: Damon Gwinn
@@ -148,7 +155,7 @@ def create_pop909_datasets(dataset_root, max_seq, random_seq=True):
     """
 
 
-    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, label=1)
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, label=1, condition_token=False)
 
     return pop909_dataset
 

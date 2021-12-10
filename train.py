@@ -9,8 +9,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-# from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
-from dataset.e_piano_condition import create_epiano_datasets, create_pop909_datasets    # CTRL condition
+from dataset.e_piano import create_epiano_datasets, create_pop909_datasets  # CTLR 추가해벌임~!~!~!
 
 from model.music_transformer import MusicTransformer
 
@@ -92,10 +91,11 @@ def main():
 
     ##### Datasets #####
 
-    classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence)
-
-    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence)
-    pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset, [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)], generator=torch.Generator().manual_seed(42))
+    classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence, args.condition_token)
+    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, args.condition_token)
+    pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
+                                                                   [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
+                                                                   generator=torch.Generator().manual_seed(42))
 
 
     if args.data == 'both':
@@ -120,7 +120,7 @@ def main():
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
-                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token = args.condition_token).to(get_device())
 
     # EY critic
     # num_prime = args.num_prime
