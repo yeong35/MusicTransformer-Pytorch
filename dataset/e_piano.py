@@ -24,7 +24,7 @@ class EPianoDataset(Dataset):
     ----------
     """
 
-    def __init__(self, root, max_seq=2048, random_seq=True, label=0, condition_token = False):
+    def __init__(self, root, max_seq=2048, random_seq=True, condition_token=False, label=0):
         self.root       = root
         self.max_seq    = max_seq
         self.random_seq = random_seq
@@ -138,9 +138,9 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     val_root = os.path.join(dataset_root, "val")
     test_root = os.path.join(dataset_root, "test")
 
-    train_dataset = EPianoDataset(train_root, max_seq, random_seq, label=0, condition_token=False)
-    val_dataset = EPianoDataset(val_root, max_seq, random_seq, label=0, condition_token=False)
-    test_dataset = EPianoDataset(test_root, max_seq, random_seq, label=0, condition_token=False)
+    train_dataset = EPianoDataset(train_root, max_seq, random_seq, condition_token, label=0)
+    val_dataset = EPianoDataset(val_root, max_seq, random_seq, condition_token, label=0)
+    test_dataset = EPianoDataset(test_root, max_seq, random_seq, condition_token, label=0)
 
     return train_dataset, val_dataset, test_dataset
 
@@ -155,7 +155,7 @@ def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     """
 
 
-    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, label=1, condition_token=False)
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, condition_token, label=1)
 
     return pop909_dataset
 
