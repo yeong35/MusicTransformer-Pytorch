@@ -13,7 +13,7 @@ def parse_train_args():
     """
 
     parser = argparse.ArgumentParser()
-
+    parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
     parser.add_argument("-classic_input_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
@@ -77,6 +77,7 @@ def print_train_args(args):
     print("batch_size:", args.batch_size)
     print("epochs:", args.epochs)
     print("")
+    print("condition_token:", args.condition_token)
     print("rpr:", args.rpr)
     print("max_sequence:", args.max_sequence)
     print("n_layers:", args.n_layers)
@@ -99,7 +100,8 @@ def parse_eval_args():
     """
 
     parser = argparse.ArgumentParser()
-
+    parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
+    parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
     parser.add_argument("-dataset_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-model_weights", type=str, default="./saved_models/model.pickle", help="Pickled model weights file saved with torch.save and model.state_dict()")
@@ -137,6 +139,7 @@ def print_eval_args(args):
     print("")
     print("batch_size:", args.batch_size)
     print("")
+    print("condition_token:", args.condition_token)
     print("rpr:", args.rpr)
     print("max_sequence:", args.max_sequence)
     print("n_layers:", args.n_layers)
@@ -158,7 +161,7 @@ def parse_generate_args():
     """
 
     parser = argparse.ArgumentParser()
-
+    parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("-midi_root", type=str, default="./dataset/e_piano/", help="Midi file to prime the generator with")
     parser.add_argument("-output_dir", type=str, default="./gen", help="Folder to write generated midi to")
     parser.add_argument("-primer_file", type=str, default=None, help="File path or integer index to the evaluation dataset. Default is to select a random index.")
@@ -200,6 +203,7 @@ def print_generate_args(args):
     print("model_weights:", args.model_weights)
     print("beam:", args.beam)
     print("")
+    print("condition_token:", args.condition_token)
     print("rpr:", args.rpr)
     print("max_sequence:", args.max_sequence)
     print("n_layers:", args.n_layers)
