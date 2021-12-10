@@ -7,7 +7,7 @@ from third_party.midi_processor.processor import decode_midi, encode_midi
 
 from utilities.argument_funcs import parse_generate_args, print_generate_args
 from model.music_transformer import MusicTransformer
-from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy, process_midi
+from dataset.e_piano import create_epiano_datasets, create_pop909_datasets, compute_epiano_accuracy, process_midi
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
@@ -44,8 +44,12 @@ def main():
     pop_path = './dataset/pop_trainvalid/'
 
     # train, val, test
-    classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, random_seq=False)
-    pop_train, pop_eval, pop_test = create_epiano_datasets(pop_path, args.num_prime, random_seq=False)
+    if args.condition_token:
+        classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, random_seq=False, condition_token=True)
+        pop_train, pop_eval, pop_test = create_pop909_datasets(pop_path, args.num_prime, random_seq=False, condition_token=True)
+    else:
+        classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, random_seq=False, condition_token=False)
+        pop_train, pop_eval, pop_test = create_pop909_datasets(pop_path, args.num_prime, random_seq=False, condition_token=False)
     
     classic_dataset = [classic_train, classic_eval, classic_test]
     pop_dataset = [pop_train, pop_eval, pop_test]
@@ -77,7 +81,7 @@ def main():
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward,
-                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token=args.condition_token).to(get_device())
 
     model.load_state_dict(torch.load(args.model_weights))
 
@@ -101,7 +105,7 @@ def main():
             # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
 
             print("RAND DIST")
-            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0)
+            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token)
 
             f_path = os.path.join(
                 args.output_dir+'/classic/', f"rand_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
@@ -127,7 +131,7 @@ def main():
             # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
 
             print("RAND DIST")
-            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0)
+            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token)
 
             f_path = os.path.join(
                 args.output_dir+'/pop/', f"rand_{dataset.data_files[pop_index][len(pop_path)+folder_name_length:]}.mid")

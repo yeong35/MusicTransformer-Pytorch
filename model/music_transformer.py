@@ -116,7 +116,7 @@ class MusicTransformer(nn.Module):
         return y
 
     # generate
-    def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0):
+    def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0, condition_token=False):
         """
         ----------
         Author: Damon Gwinn
@@ -174,8 +174,10 @@ class MusicTransformer(nn.Module):
             cur_i += 1
             if(cur_i % 50 == 0):
                 print(cur_i, "/", target_seq_length)
-
-        return gen_seq[:, :cur_i]
+        if condition_token:
+            return gen_seq[:, 1:cur_i]
+        else:
+            return gen_seq[:, :cur_i]
 
 # Used as a dummy to nn.Transformer
 # DummyDecoder
