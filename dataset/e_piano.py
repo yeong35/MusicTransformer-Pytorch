@@ -107,7 +107,8 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = No
 
         data = raw_mid[start:end]
 
-        if not condition_token:
+        # condition_token이 true면 label에 따라 조건코드를 추가해주자
+        if condition_token:
             if label == 0:
                 data = torch.tensor(CONDITION_CLASSIC) + raw_mid[start:end]
             elif label == 1:
@@ -115,7 +116,6 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = No
 
         x = data[:max_seq]
         tgt = data[1:full_seq]
-
 
     # print("x:",x)
     # print("tgt:",tgt)
