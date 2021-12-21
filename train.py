@@ -90,9 +90,8 @@ def main():
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-
-    classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence, args.condition_token)
-    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, args.condition_token)
+    classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence, condition_token = args.condition_token)
+    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, condition_token = args.condition_token)
     pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
                                                                    [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
                                                                    generator=torch.Generator().manual_seed(42))

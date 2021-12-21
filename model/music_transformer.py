@@ -175,6 +175,7 @@ class MusicTransformer(nn.Module):
             if(cur_i % 50 == 0):
                 print(cur_i, "/", target_seq_length)
         if condition_token:
+            # condition_token 제외하고 return
             return gen_seq[:, 1:cur_i]
         else:
             return gen_seq[:, :cur_i]
