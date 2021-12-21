@@ -124,7 +124,7 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = No
 
 
 # create_epiano_datasets
-def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False):
+def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, label = 0):
     """
     ----------
     Author: Damon Gwinn
@@ -138,13 +138,13 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     val_root = os.path.join(dataset_root, "val")
     test_root = os.path.join(dataset_root, "test")
 
-    train_dataset = EPianoDataset(train_root, max_seq, random_seq, condition_token, label=0)
-    val_dataset = EPianoDataset(val_root, max_seq, random_seq, condition_token, label=0)
-    test_dataset = EPianoDataset(test_root, max_seq, random_seq, condition_token, label=0)
+    train_dataset = EPianoDataset(train_root, max_seq, random_seq, condition_token, label)
+    val_dataset = EPianoDataset(val_root, max_seq, random_seq, condition_token, label)
+    test_dataset = EPianoDataset(test_root, max_seq, random_seq, condition_token, label)
 
     return train_dataset, val_dataset, test_dataset
 
-def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False):
+def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, label = 1):
     """
     ----------
     Author: Damon Gwinn
@@ -155,7 +155,7 @@ def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     """
 
 
-    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, condition_token, label=1)
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, condition_token, label)
 
     return pop909_dataset
 
