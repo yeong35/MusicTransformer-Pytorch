@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy
+from dataset.e_piano import create_epiano_datasets, compute_epiano_accuracy, create_pop909_datasets
 
 from model.music_transformer import MusicTransformer
 
@@ -30,13 +30,32 @@ def main():
         print("")
 
     # Test dataset
-    _, _, test_dataset = create_epiano_datasets(args.dataset_dir, args.max_sequence)
+
+    classic_train, classic_val, classic_test = create_epiano_datasets('dataset/e_piano/', args.max_sequence)
+
+    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence)
+    pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset, [int(len(pop909_dataset) * 0.8),
+                                                                                    int(len(pop909_dataset) * 0.1),
+                                                                                    len(pop909_dataset) - int(
+                                                                                        len(pop909_dataset) * 0.8) - int(
+                                                                                        len(pop909_dataset) * 0.1)],
+                                                                   generator=torch.Generator().manual_seed(42))
+
+    if args.data == 'both':
+        print("Dataset: both")
+        test_dataset = torch.utils.data.ConcatDataset([ classic_test, pop_test])
+    elif args.data == 'classic':
+        print("Dataset: classic")
+        test_dataset = torch.utils.data.ConcatDataset([ classic_test])
+    else:
+        print("Dataset: pop")
+        test_dataset = torch.utils.data.ConcatDataset([pop_test])
 
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.n_workers)
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward,
-                max_sequence=args.max_sequence, rpr=args.rpr).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token = args.condition_token).to(get_device())
 
     model.load_state_dict(torch.load(args.model_weights))
 
