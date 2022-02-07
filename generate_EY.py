@@ -47,8 +47,8 @@ def main():
     '''
     default
     '''
-    classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, condition_token=args.condition_token, label = 0)
-    pop_dataset = create_pop909_datasets(pop_path, args.num_prime, condition_token=args.condition_token, label = 1)
+    classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, condition_token=args.condition_token, interval = args.interval, label = 0)
+    pop_dataset = create_pop909_datasets(pop_path, args.num_prime, condition_token=args.condition_token, interval = args.interval, label = 1)
 
     '''
     classic token only
@@ -93,7 +93,7 @@ def main():
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward,
-                max_sequence=args.max_sequence, rpr=args.rpr, condition_token=args.condition_token).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token=args.condition_token, interval = args.interval).to(get_device())
 
     model.load_state_dict(torch.load(args.model_weights))
 
@@ -101,31 +101,31 @@ def main():
     # GENERATION
     model.eval()
 
-    # # classic generation
-    # for dataset, folder in zip(classic_dataset, dataset_folder):
-    #
-    #     classic_index_list = list(range(len(dataset)))
-    #     folder_name_length = len(folder)
-    #
-    #     for classic_index in classic_index_list:
-    #         primer, _, _ = dataset[classic_index]
-    #         primer = primer.to(get_device())
-    #         print("Using primer index:", classic_index, "(", dataset.data_files[classic_index], ")")
-    #
-    #         # # Saving primer first
-    #         # f_path = os.path.join(args.output_dir, f"primer_{classic_dataset.data_files[classic_index][len(classic_path)+5:]}.mid")
-    #         # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
-    #
-    #         print("RAND DIST")
-    #         rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token)
-    #
-    #         f_path = os.path.join(
-    #             args.output_dir+'/classic/', f"rand_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
-    #
-    #         try:
-    #             decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
-    #         except:
-    #             continue
+    # classic generation
+    for dataset, folder in zip(classic_dataset, dataset_folder):
+
+        classic_index_list = list(range(len(dataset)))
+        folder_name_length = len(folder)
+
+        for classic_index in classic_index_list:
+            primer, _, _ = dataset[classic_index]
+            primer = primer.to(get_device())
+            print("Using primer index:", classic_index, "(", dataset.data_files[classic_index], ")")
+
+            # # Saving primer first
+            # f_path = os.path.join(args.output_dir, f"primer_{classic_dataset.data_files[classic_index][len(classic_path)+5:]}.mid")
+            # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
+
+            print("RAND DIST")
+            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token, interval = args.interval)
+
+            f_path = os.path.join(
+                args.output_dir+'/classic/', f"rand_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
+
+            try:
+                decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
+            except:
+                continue
 
     # pop generation
     for dataset in pop_dataset:
@@ -143,7 +143,7 @@ def main():
             # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
 
             print("RAND DIST")
-            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token)
+            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token, interval = args.interval)
 
             f_path = os.path.join(
                 args.output_dir+'/pop/', f"rand_{dataset.data_files[pop_index][len(pop_path):]}.mid")

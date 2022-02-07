@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from dataset.e_piano import create_epiano_datasets, create_pop909_datasets  # CTLR 추가해벌임~!~!~!
+from dataset.e_piano import create_epiano_datasets, create_pop909_datasets
 
 from model.music_transformer import MusicTransformer
 
@@ -90,12 +90,21 @@ def main():
         tensorboard_summary = SummaryWriter(log_dir=tensorboad_dir)
 
     ##### Datasets #####
-    classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence, condition_token = args.condition_token)
-    pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, condition_token = args.condition_token)
-    pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
-                                                                   [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
-                                                                   generator=torch.Generator().manual_seed(42))
-
+    if not args.interval:
+        classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence, condition_token = args.condition_token)
+        pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, condition_token = args.condition_token)
+        pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
+                                                                       [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1), len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
+                                                                       generator=torch.Generator().manual_seed(42))
+    # 데이터셋이 바뀌기 때문에 아래와같이 해주어야함
+    else:
+        print("interval dataset!!")
+        classic_train, classic_val, classic_test = create_epiano_datasets('./dataset/logscale_e_piano', args.max_sequence, condition_token=args.condition_token, interval = args.interval)
+        pop909_dataset = create_pop909_datasets('./dataset/logscale_pop909', args.max_sequence, condition_token=args.condition_token, interval = args.interval)
+        pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
+                                                                       [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1),
+                                                                        len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
+                                                                       generator=torch.Generator().manual_seed(42))
 
     if args.data == 'both':
         print("Dataset: both")
@@ -103,8 +112,8 @@ def main():
         val_dataset = torch.utils.data.ConcatDataset([ classic_val, pop_valid])
     elif args.data == 'classic':
         print("Dataset: classic")
-        train_dataset = torch.utils.data.ConcatDataset([ classic_train])
-        val_dataset = torch.utils.data.ConcatDataset([ classic_val])
+        train_dataset = torch.utils.data.ConcatDataset([classic_train])
+        val_dataset = torch.utils.data.ConcatDataset([classic_val])
     else:
         print("Dataset: pop")
         train_dataset = torch.utils.data.ConcatDataset([pop_train])
@@ -119,7 +128,7 @@ def main():
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward, dropout=args.dropout,
-                max_sequence=args.max_sequence, rpr=args.rpr, condition_token = args.condition_token).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token = args.condition_token, interval = args.interval).to(get_device())
 
     # EY critic
     # num_prime = args.num_prime
@@ -161,13 +170,20 @@ def main():
         lr = args.lr
 
     ##### Not smoothing evaluation loss #####
-    eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD)
+    if not args.interval:
+        eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD)
+    else:
+        eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_INTERVAL)
+
 
     ##### SmoothCrossEntropyLoss or CrossEntropyLoss for training #####
     if(args.ce_smoothing is None):
         train_loss_func = eval_loss_func
     else:
-        train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
+        if not args.interval:
+            train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)
+        else:
+            train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE_INTERVAL, ignore_index=TOKEN_PAD_INTERVAL)
 
     ##### EY - WGAN Loss #####
     classifier_loss_func = nn.MSELoss()
@@ -218,7 +234,7 @@ def main():
 
         # Eval
         # train_loss, train_acc = eval_model(model, train_loader, train_loss_func)
-        eval_loss, eval_acc = eval_model(model, val_loader, eval_loss_func)
+        eval_loss, eval_acc = eval_model(model, val_loader, eval_loss_func, args)
 
         # Learn rate
         lr = get_lr(opt)

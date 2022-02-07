@@ -1,4 +1,5 @@
 import argparse
+from code import interact
 import os
 import pickle
 import json
@@ -8,7 +9,7 @@ import third_party.midi_processor.processor as midi_processor
 JSON_FILE = "maestro-v2.0.0.json"
 
 # prep_midi
-def prep_midi(maestro_root, output_dir):
+def prep_midi(maestro_root, output_dir, interval = False, logspace=False):
     """
     ----------
     Author: Damon Gwinn
@@ -57,7 +58,10 @@ def prep_midi(maestro_root, output_dir):
             print("ERROR: Unrecognized split type:", split_type)
             return False
 
-        prepped = midi_processor.encode_midi(mid)
+        if not interval:
+            prepped = midi_processor.encode_midi(mid)
+        else:
+            prepped = midi_processor.encode_midi_JE(mid, logspace=logspace)
 
         o_stream = open(o_file, "wb")
         pickle.dump(prepped, o_stream)
@@ -104,9 +108,10 @@ def main():
     args            = parse_args()
     maestro_root    = args.maestro_root
     output_dir      = args.output_dir
+    interval = True         # interval preprocessing
 
     print("Preprocessing midi files and saving to", output_dir)
-    prep_midi(maestro_root, output_dir)
+    prep_midi(maestro_root, output_dir, interval, logspace=True)
     print("Done!")
     print("")
 

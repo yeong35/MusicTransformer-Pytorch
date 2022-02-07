@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad, Variable
 
+import numpy as np # 확인용으로 넣어둠 이따 지우세요
+
 import time
 
 from .constants import *
@@ -50,18 +52,32 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         tgt = batch[1].to(get_device())
         label = batch[2].to(get_device())
 
-        y = model(x)
+        y = model(x)        # (batch, sequence, vocab)
 
-        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt))
+        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt, args.interval))
 
         soft_y = F.gumbel_softmax(y, tau=1, hard=False)
         hard_y = F.gumbel_softmax(y, tau=1, hard=True)
+        # print("y:",y.reshape(y.shape[0] * y.shape[1], -1).shape)
+        # print("tgt:", tgt.flatten().shape)
 
-        nll_loss = loss(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())
+        nll_loss = loss(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())  # 계산중 nan이 나오는 것을 확인함
+        # print(x)
+        # print(type(nll_loss),nll_loss)
+        # if np.isnan(nll_loss.detach().cpu()):
+        #     exit()
+        #     torch.save(y,'pred.pt')
+        #     torch.save(tgt, 'target.pt')
+        #     print('error saved')
+            
+
 
         total_loss += nll_loss
 
-        tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
+        if not args.interval:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
+        else:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_INTERVAL).float()
 
 
         if GAN_mode:
@@ -90,7 +106,9 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         opt.step()
 
         acc_nll_loss += float(nll_loss.detach().cpu())
-
+        # print("T, nll_loss :", nll_loss.detach().cpu())
+        # print("F, nll_loss :", float(nll_loss.detach().cpu()))
+        # print("acc_loss :",acc_nll_loss)
 
         # discriminator update!
 
@@ -156,7 +174,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
     return acc_nll_loss / len(dataloader), acc_pitch_accuracy / len(dataloader), acc_dis_loss / critic_count, acc_gen_loss / critic_count, acc_cre_loss / len(dataloader), float(acc_gan_accuracy) / critic_count, float(acc_class_accuracy) / critic_count, float(acc_creativity) / len(dataloader)
 
 # eval_model
-def eval_model(model, dataloader, loss):
+def eval_model(model, dataloader, loss, args):
     """
     ----------
     Author: Damon Gwinn
@@ -179,7 +197,7 @@ def eval_model(model, dataloader, loss):
 
             y = model(x)
 
-            sum_acc += float(compute_epiano_accuracy(y, tgt))
+            sum_acc += float(compute_epiano_accuracy(y, tgt, args.interval))
 
             y   = y.reshape(y.shape[0] * y.shape[1], -1)
             tgt = tgt.flatten()

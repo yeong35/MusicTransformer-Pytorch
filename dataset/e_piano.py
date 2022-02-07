@@ -24,11 +24,12 @@ class EPianoDataset(Dataset):
     ----------
     """
 
-    def __init__(self, root, max_seq=2048, random_seq=True, condition_token=False, label=0):
+    def __init__(self, root, max_seq=2048, random_seq=True, condition_token=False, interval = False, label=0):
         self.root       = root
         self.max_seq    = max_seq
         self.random_seq = random_seq
         self.condition_token = condition_token
+        self.interval = interval
 
         fs = [os.path.join(root, f) for f in os.listdir(self.root)]
         self.data_files = [f for f in fs if os.path.isfile(f)]
@@ -64,13 +65,13 @@ class EPianoDataset(Dataset):
         raw_mid     = torch.tensor(pickle.load(i_stream), dtype=TORCH_LABEL_TYPE, device=cpu_device())
         i_stream.close()
 
-        x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq, self.condition_token, self.label)
-
+        x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq,
+                              condition_token = self.condition_token, interval = self.interval, label = self.label)
 
         return x, tgt, torch.tensor(self.label[idx])
 
 # process_midi
-def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = None):
+def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval = False, label = 0):
     """
     ----------
     Author: Damon Gwinn
@@ -79,9 +80,12 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = No
     go from the start based on random_seq.
     ----------
     """
-
-    x   = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
-    tgt = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    if not interval:
+        x   = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+        tgt = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    else:
+        x   = torch.full((max_seq, ), TOKEN_PAD_INTERVAL, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+        tgt = torch.full((max_seq, ), TOKEN_PAD_INTERVAL, dtype=TORCH_LABEL_TYPE, device=cpu_device())
 
     raw_len     = len(raw_mid)
     full_seq    = max_seq + 1 # Performing seq2seq
@@ -92,7 +96,10 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = No
     if(raw_len < full_seq):
         x[:raw_len]         = raw_mid
         tgt[:raw_len-1]     = raw_mid[1:]
-        tgt[raw_len]        = TOKEN_END
+        if not interval:
+            tgt[raw_len]    = TOKEN_END
+        else:
+            tgt[raw_len]    = TOKEN_END_INTERVAL
     else:
         # Randomly selecting a range
         if(random_seq):
@@ -124,7 +131,7 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, label = No
 
 
 # create_epiano_datasets
-def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, label = 0):
+def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, interval = False, label = 0):
     """
     ----------
     Author: Damon Gwinn
@@ -138,13 +145,16 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     val_root = os.path.join(dataset_root, "val")
     test_root = os.path.join(dataset_root, "test")
 
-    train_dataset = EPianoDataset(train_root, max_seq, random_seq, condition_token, label)
-    val_dataset = EPianoDataset(val_root, max_seq, random_seq, condition_token, label)
-    test_dataset = EPianoDataset(test_root, max_seq, random_seq, condition_token, label)
+    train_dataset = EPianoDataset(train_root, max_seq, random_seq,
+                                  condition_token = condition_token, interval = interval, label = label)
+    val_dataset = EPianoDataset(val_root, max_seq, random_seq,
+                                condition_token = condition_token, interval = interval, label = label)
+    test_dataset = EPianoDataset(test_root, max_seq, random_seq,
+                                 condition_token = condition_token, interval = interval, label = label)
 
     return train_dataset, val_dataset, test_dataset
 
-def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, label = 1):
+def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, interval = False, label = 1):
     """
     ----------
     Author: Damon Gwinn
@@ -155,12 +165,13 @@ def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     """
 
 
-    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq, condition_token, label)
+    pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq,
+                                   condition_token = condition_token, interval = interval, label =  label)
 
     return pop909_dataset
 
 # compute_epiano_accuracy
-def compute_epiano_accuracy(out, tgt):
+def compute_epiano_accuracy(out, tgt, interval = False):
     """
     ----------
     Author: Damon Gwinn
@@ -176,7 +187,10 @@ def compute_epiano_accuracy(out, tgt):
     out = out.flatten()
     tgt = tgt.flatten()
 
-    mask = (tgt != TOKEN_PAD)
+    if not interval:
+        mask = (tgt != TOKEN_PAD)
+    else:
+        mask = (tgt != TOKEN_PAD_INTERVAL)
 
     out = out[mask]
     tgt = tgt[mask]

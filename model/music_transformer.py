@@ -29,7 +29,7 @@ class MusicTransformer(nn.Module):
     """
 
     def __init__(self, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
-                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False):
+                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False, interval = False):
         super(MusicTransformer, self).__init__()
 
         self.dummy      = DummyDecoder()
@@ -42,12 +42,17 @@ class MusicTransformer(nn.Module):
         self.max_seq    = max_sequence
         self.rpr        = rpr
         self.condition_token = condition_token
+        self.interval   = interval
 
         # Input embedding
-        if(not self.condition_token):
+        if not self.condition_token and not interval:                   # default
             self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
-        else:
+        elif not self.condition_token and interval:                     # condition token 안사용하고 interval 전처리만 한다면?
+            self.embedding = nn.Embedding(VOCAB_SIZE_INTERVAL, self.d_model)
+        elif self.condition_token and not interval:                     # condition token을 사용하고, interval 전처리를 안함
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE, self.d_model)
+        elif self.condition_token and interval:                         # condition token, interval 모두 사용
+            self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_INTERVAL, self.d_model)
 
         # Positional encoding
         self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
@@ -73,7 +78,10 @@ class MusicTransformer(nn.Module):
             )
 
         # Final output is a softmaxed linear layer
-        self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE)
+        if not interval:
+            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE)
+        else:
+            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_INTERVAL)
         self.softmax    = nn.Softmax(dim=-1)
 
     # forward
@@ -93,11 +101,12 @@ class MusicTransformer(nn.Module):
         else:
             mask = None
 
-        x = self.embedding(x)
+        # 처음에 (batch, sequence 들어옴)
+        x = self.embedding(x)               # (batch, sequence, d_model)
 
         # Input shape is (max_seq, batch_size, d_model)
-        x = x.permute(1,0,2)
 
+        x = x.permute(1,0,2)                # (sequence, batch, d_model)
         x = self.positional_encoding(x)
 
         # Since there are no true decoder layers, the tgt is unused
@@ -105,9 +114,9 @@ class MusicTransformer(nn.Module):
         x_out = self.transformer(src=x, tgt=x, src_mask=mask)
 
         # Back to (batch_size, max_seq, d_model)
-        x_out = x_out.permute(1,0,2)
+        x_out = x_out.permute(1,0,2)        # (sequence, batch, vocab)
 
-        y = self.Wout(x_out)
+        y = self.Wout(x_out)                # (batch, sequence, vocab)
         # y = self.softmax(y)
 
         del mask
@@ -116,7 +125,7 @@ class MusicTransformer(nn.Module):
         return y
 
     # generate
-    def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0, condition_token=False):
+    def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0, condition_token=False, interval = False):
         """
         ----------
         Author: Damon Gwinn
@@ -141,7 +150,10 @@ class MusicTransformer(nn.Module):
         cur_i = num_primer
         while(cur_i < target_seq_length):
             # gen_seq_batch     = gen_seq.clone()
-            y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END]
+            if not interval:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END]
+            else:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_INTERVAL]
             token_probs = y[:, cur_i-1, :]
 
             if(beam == 0):
@@ -167,9 +179,14 @@ class MusicTransformer(nn.Module):
 
 
                 # Let the transformer decide to end if it wants to
-                if(next_token == TOKEN_END):
-                    print("Model called end of sequence at:", cur_i, "/", target_seq_length)
-                    break
+                if not interval:
+                    if(next_token == TOKEN_END):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
+                else:
+                    if(next_token == TOKEN_END_INTERVAL):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
 
             cur_i += 1
             if(cur_i % 50 == 0):

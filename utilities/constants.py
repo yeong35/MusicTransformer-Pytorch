@@ -1,6 +1,6 @@
 import torch
 
-from third_party.midi_processor.processor import RANGE_NOTE_ON, RANGE_NOTE_OFF, RANGE_VEL, RANGE_TIME_SHIFT
+from third_party.midi_processor.processor import RANGE_NOTE_ON, RANGE_NOTE_OFF, RANGE_VEL, RANGE_TIME_SHIFT, DURATION, NOTE_CHANGE, START_PITCH
 
 SEPERATOR               = "========================="
 
@@ -23,6 +23,16 @@ CONDITION_POP           = CONDITION_CLASSIC + 1
 
 VOCAB_SIZE              = TOKEN_PAD + 1
 CONDITION_VOCAB_SIZE    = CONDITION_POP + 1
+
+# interval token
+TOKEN_END_INTERVAL               = NOTE_CHANGE + DURATION + RANGE_TIME_SHIFT + RANGE_VEL
+TOKEN_PAD_INTERVAL               = TOKEN_END_INTERVAL + 1
+
+CONDITION_CLASSIC_INTERVAL       = TOKEN_PAD_INTERVAL + 1
+CONDITION_POP_INTERVAL           = CONDITION_CLASSIC_INTERVAL + 1
+
+VOCAB_SIZE_INTERVAL              = TOKEN_PAD_INTERVAL + 1
+CONDITION_VOCAB_SIZE_INTERVAL    = CONDITION_POP_INTERVAL + 1
 
 TORCH_FLOAT             = torch.float32
 TORCH_INT               = torch.int32

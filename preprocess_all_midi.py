@@ -5,7 +5,7 @@ import pickle
 import third_party.midi_processor.processor as midi_processor
 
 # prep_midi
-def prep_midi(maestro_root, output_dir):
+def prep_midi(maestro_root, output_dir, interval=False, logscale=False):
     """
     ----------
     Author: Damon Gwinn
@@ -26,11 +26,19 @@ def prep_midi(maestro_root, output_dir):
 
         o_file = os.path.join(output_path, f_name)
 
-        prepped = midi_processor.encode_midi(mid)
+        if not interval:
+            prepped = midi_processor.encode_midi(mid)
+        else:
+            prepped = midi_processor.encode_midi_JE(mid, logscale)
+
+        if len(prepped)==0:
+            print(piece)
+            exit()
 
         o_stream = open(o_file, "wb")
         pickle.dump(prepped, o_stream)
         o_stream.close()
+
     return True
 
 
@@ -65,12 +73,15 @@ def main():
     args            = parse_args()
     maestro_root    = args.maestro_root
     output_dir      = args.output_dir
+    interval = True
+
+    # python preprocess_all_midi.py "maestro_root" -output_dir "output_dir_path"
 
     print("maestro root :", maestro_root)
     print("Preprocessing midi files and saving to", output_dir)
 
 
-    prep_midi(maestro_root, output_dir)
+    prep_midi(maestro_root, output_dir, interval = interval, logscale=True)
     print("Done!")
     print("")
 

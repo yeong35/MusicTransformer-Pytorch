@@ -13,6 +13,7 @@ def parse_train_args():
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--interval", action="store_true", help="USE interval dataset and VOCAB")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
     parser.add_argument("-classic_input_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
@@ -168,7 +169,7 @@ def parse_generate_args():
     parser.add_argument("--force_cpu", action="store_true", help="Forces model to run on a cpu even when gpu is available")
 
     parser.add_argument("-target_seq_length", type=int, default=1024, help="Target length you'd like the midi to be")
-    parser.add_argument("-num_prime", type=int, default=256, help="Amount of messages to prime the generator with")
+    parser.add_argument("-num_prime", type=int, default=1, help="Amount of messages to prime the generator with")
     parser.add_argument("-model_weights", type=str, default="./saved_models/model.pickle", help="Pickled model weights file saved with torch.save and model.state_dict()")
     parser.add_argument("-beam", type=int, default=0, help="Beam search k. 0 for random probability sample and 1 for greedy")
 

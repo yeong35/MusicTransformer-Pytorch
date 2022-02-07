@@ -86,7 +86,8 @@ def main():
             rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0)
 
             f_path = os.path.join(
-                args.output_dir, f"rand_{args.primer_file}_{args.model_weights}.mid")
+                args.output_dir, f"rand_{args.primer_file}.mid")
+                # args.output_dir, f"rand_{args.primer_file}_{args.model_weights}.mid")
             decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
 
 
