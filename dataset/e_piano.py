@@ -24,12 +24,13 @@ class EPianoDataset(Dataset):
     ----------
     """
 
-    def __init__(self, root, max_seq=2048, random_seq=True, condition_token=False, interval = False, label=0):
+    def __init__(self, root, max_seq=2048, random_seq=True, condition_token=False, interval = False, octave = False, label=0):
         self.root       = root
         self.max_seq    = max_seq
         self.random_seq = random_seq
         self.condition_token = condition_token
         self.interval = interval
+        self.octave = octave
 
         fs = [os.path.join(root, f) for f in os.listdir(self.root)]
         self.data_files = [f for f in fs if os.path.isfile(f)]
@@ -66,12 +67,12 @@ class EPianoDataset(Dataset):
         i_stream.close()
 
         x, tgt = process_midi(raw_mid, self.max_seq, self.random_seq,
-                              condition_token = self.condition_token, interval = self.interval, label = self.label)
+                              condition_token = self.condition_token, interval = self.interval, octave = self.octave, label = self.label)
 
         return x, tgt, torch.tensor(self.label[idx])
 
 # process_midi
-def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval = False, label = 0):
+def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval = False, octave = False, label = 0):
     """
     ----------
     Author: Damon Gwinn
@@ -80,12 +81,18 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
     go from the start based on random_seq.
     ----------
     """
-    if not interval:
-        x   = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
-        tgt = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
-    else:
+    if interval and octave:
+        x   = torch.full((max_seq, ), TOKEN_PAD_OCTAVE_INTERVAL, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+        tgt = torch.full((max_seq, ), TOKEN_PAD_OCTAVE_INTERVAL, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    elif interval and not octave:
         x   = torch.full((max_seq, ), TOKEN_PAD_INTERVAL, dtype=TORCH_LABEL_TYPE, device=cpu_device())
         tgt = torch.full((max_seq, ), TOKEN_PAD_INTERVAL, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    elif not interval and octave:
+        x   = torch.full((max_seq, ), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+        tgt = torch.full((max_seq, ), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    else:
+        x   = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+        tgt = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
 
     raw_len     = len(raw_mid)
     full_seq    = max_seq + 1 # Performing seq2seq
@@ -96,10 +103,14 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
     if(raw_len < full_seq):
         x[:raw_len]         = raw_mid
         tgt[:raw_len-1]     = raw_mid[1:]
-        if not interval:
-            tgt[raw_len]    = TOKEN_END
-        else:
+        if interval and octave:
+            tgt[raw_len]    = TOKEN_END_OCTAVE_INTERVAL
+        elif interval and not octave:
             tgt[raw_len]    = TOKEN_END_INTERVAL
+        elif not interval and octave:
+            tgt[raw_len]    = TOKEN_END_OCTAVE
+        else:
+            tgt[raw_len]    = TOKEN_END
     else:
         # Randomly selecting a range
         if(random_seq):
@@ -131,7 +142,7 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
 
 
 # create_epiano_datasets
-def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, interval = False, label = 0):
+def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, interval = False, octave = False, label = 0):
     """
     ----------
     Author: Damon Gwinn
@@ -146,15 +157,15 @@ def create_epiano_datasets(dataset_root, max_seq, random_seq=True, condition_tok
     test_root = os.path.join(dataset_root, "test")
 
     train_dataset = EPianoDataset(train_root, max_seq, random_seq,
-                                  condition_token = condition_token, interval = interval, label = label)
+                                  condition_token = condition_token, interval = interval, octave = octave, label = label)
     val_dataset = EPianoDataset(val_root, max_seq, random_seq,
-                                condition_token = condition_token, interval = interval, label = label)
+                                condition_token = condition_token, interval = interval, octave = octave, label = label)
     test_dataset = EPianoDataset(test_root, max_seq, random_seq,
-                                 condition_token = condition_token, interval = interval, label = label)
+                                 condition_token = condition_token, interval = interval, octave = octave, label = label)
 
     return train_dataset, val_dataset, test_dataset
 
-def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, interval = False, label = 1):
+def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_token=False, interval = False, octave = False, label = 1):
     """
     ----------
     Author: Damon Gwinn
@@ -166,12 +177,12 @@ def create_pop909_datasets(dataset_root, max_seq, random_seq=True, condition_tok
 
 
     pop909_dataset = EPianoDataset(dataset_root, max_seq, random_seq,
-                                   condition_token = condition_token, interval = interval, label =  label)
+                                   condition_token = condition_token, interval = interval, octave = octave, label =  label)
 
     return pop909_dataset
 
 # compute_epiano_accuracy
-def compute_epiano_accuracy(out, tgt, interval = False):
+def compute_epiano_accuracy(out, tgt, interval = False, octave = False):
     """
     ----------
     Author: Damon Gwinn
@@ -187,10 +198,14 @@ def compute_epiano_accuracy(out, tgt, interval = False):
     out = out.flatten()
     tgt = tgt.flatten()
 
-    if not interval:
-        mask = (tgt != TOKEN_PAD)
-    else:
+    if interval and octave:
+        mask = (tgt != TOKEN_PAD_OCTAVE_INTERVAL)
+    elif not interval and octave:
+        mask = (tgt != TOKEN_PAD_OCTAVE)
+    elif interval and not octave:
         mask = (tgt != TOKEN_PAD_INTERVAL)
+    else:
+        mask = (tgt != TOKEN_PAD)
 
     out = out[mask]
     tgt = tgt[mask]

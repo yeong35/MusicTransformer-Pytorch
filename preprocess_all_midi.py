@@ -5,7 +5,7 @@ import pickle
 import third_party.midi_processor.processor as midi_processor
 
 # prep_midi
-def prep_midi(maestro_root, output_dir, interval=False, logscale=False):
+def prep_midi(maestro_root, output_dir, interval=False, logscale=False, octave = False):
     """
     ----------
     Author: Damon Gwinn
@@ -29,7 +29,10 @@ def prep_midi(maestro_root, output_dir, interval=False, logscale=False):
         if not interval:
             prepped = midi_processor.encode_midi(mid)
         else:
-            prepped = midi_processor.encode_midi_JE(mid, logscale)
+            prepped = midi_processor.encode_midi_JE(mid, logspace = logscale)
+        
+        if octave:
+            prepped = midi_processor.encode_midi_JE(mid, octave=True)
 
         if len(prepped)==0:
             print(piece)
@@ -81,7 +84,8 @@ def main():
     print("Preprocessing midi files and saving to", output_dir)
 
 
-    prep_midi(maestro_root, output_dir, interval = interval, logscale=True)
+
+    prep_midi(maestro_root, output_dir, interval = interval, logscale=False, octave = True)
     print("Done!")
     print("")
 

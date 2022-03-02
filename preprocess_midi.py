@@ -9,7 +9,7 @@ import third_party.midi_processor.processor as midi_processor
 JSON_FILE = "maestro-v2.0.0.json"
 
 # prep_midi
-def prep_midi(maestro_root, output_dir, interval = False, logspace=False):
+def prep_midi(maestro_root, output_dir, interval = False, logspace=False, octave = False):
     """
     ----------
     Author: Damon Gwinn
@@ -58,10 +58,14 @@ def prep_midi(maestro_root, output_dir, interval = False, logspace=False):
             print("ERROR: Unrecognized split type:", split_type)
             return False
 
-        if not interval:
-            prepped = midi_processor.encode_midi(mid)
+        if octave and interval:
+            prepped = midi_processor.encode_midi_JE(mid, octave=octave, interval=interval)
+        elif octave and not interval:
+            prepped = midi_processor.encode_midi_JE(mid, octave=octave, interval=interval)
+        elif not octave and interval:
+            prepped = midi_processor.encode_midi_JE(mid, octave=octave, interval=interval, logspace=logspace)
         else:
-            prepped = midi_processor.encode_midi_JE(mid, logspace=logspace)
+            prepped = midi_processor.encode_midi(mid)
 
         o_stream = open(o_file, "wb")
         pickle.dump(prepped, o_stream)
@@ -111,7 +115,7 @@ def main():
     interval = True         # interval preprocessing
 
     print("Preprocessing midi files and saving to", output_dir)
-    prep_midi(maestro_root, output_dir, interval, logspace=True)
+    prep_midi(maestro_root, output_dir, interval=False, logspace=False, octave = True)
     print("Done!")
     print("")
 

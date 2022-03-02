@@ -13,6 +13,7 @@ def parse_train_args():
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--octave", action="store_true", help="Use octave dataset and VOCAB")
     parser.add_argument("--interval", action="store_true", help="USE interval dataset and VOCAB")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
@@ -101,7 +102,9 @@ def parse_eval_args():
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--octave", action="store_true", help="Use octave dataset and VOCAB")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
+    parser.add_argument("--interval", action="store_true", help="Using interval dataset")
     parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
     parser.add_argument("-dataset_dir", type=str, default="./dataset/e_piano", help="Folder of preprocessed and pickled midi files")
     parser.add_argument("-pop_input_dir", type=str, default="./dataset/pop_pickle", help="Folder of preprocessed and pickled midi files")
@@ -162,6 +165,9 @@ def parse_generate_args():
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("-topp", type=float, default=0.0, help="top-p sampling, setting p value")
+    parser.add_argument("--octave", action="store_true", help="Use octave dataset and VOCAB")
+    parser.add_argument("--interval", action="store_true", help="USE interval dataset")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("-midi_root", type=str, default="./dataset/e_piano/", help="Midi file to prime the generator with")
     parser.add_argument("-output_dir", type=str, default="./gen", help="Folder to write generated midi to")

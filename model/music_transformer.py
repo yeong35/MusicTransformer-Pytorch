@@ -29,7 +29,7 @@ class MusicTransformer(nn.Module):
     """
 
     def __init__(self, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
-                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False, interval = False):
+                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False, interval = False, octave = False):
         super(MusicTransformer, self).__init__()
 
         self.dummy      = DummyDecoder()
@@ -43,16 +43,25 @@ class MusicTransformer(nn.Module):
         self.rpr        = rpr
         self.condition_token = condition_token
         self.interval   = interval
+        self.octave = octave
 
         # Input embedding
-        if not self.condition_token and not interval:                   # default
+        if not self.condition_token and not interval and not octave:
             self.embedding = nn.Embedding(VOCAB_SIZE, self.d_model)
-        elif not self.condition_token and interval:                     # condition token 안사용하고 interval 전처리만 한다면?
-            self.embedding = nn.Embedding(VOCAB_SIZE_INTERVAL, self.d_model)
-        elif self.condition_token and not interval:                     # condition token을 사용하고, interval 전처리를 안함
+        elif self.condition_token and not interval and not octave:
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE, self.d_model)
-        elif self.condition_token and interval:                         # condition token, interval 모두 사용
+        elif not self.condition_token and interval and not octave:
+            self.embedding = nn.Embedding(VOCAB_SIZE_INTERVAL, self.d_model)
+        elif self.condition_token and interval and not octave:
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_INTERVAL, self.d_model)
+        elif not self.condition_token and not interval and octave:
+            self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE, self.d_model)
+        elif self.condition_token and not interval and octave:
+            self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE, self.d_model)
+        elif not condition_token and interval and octave:
+            self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE_INTERVAL, self.d_model)
+        else:
+            self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE_INTERVAL, self.d_model)
 
         # Positional encoding
         self.positional_encoding = PositionalEncoding(self.d_model, self.dropout, self.max_seq)
@@ -78,10 +87,14 @@ class MusicTransformer(nn.Module):
             )
 
         # Final output is a softmaxed linear layer
-        if not interval:
-            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE)
-        else:
+        if interval and octave:
+            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE_INTERVAL)
+        elif interval and not octave:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_INTERVAL)
+        elif not interval and octave:
+            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE)
+        else:
+            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE)
         self.softmax    = nn.Softmax(dim=-1)
 
     # forward
@@ -125,7 +138,8 @@ class MusicTransformer(nn.Module):
         return y
 
     # generate
-    def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0, condition_token=False, interval = False):
+    def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0,
+                 condition_token=False, interval=False, octave=False, topp=0):
         """
         ----------
         Author: Damon Gwinn
@@ -138,8 +152,14 @@ class MusicTransformer(nn.Module):
         assert (not self.training), "Cannot generate while in training mode"
 
         print("Generating sequence of max length:", target_seq_length)
-
-        gen_seq = torch.full((1,target_seq_length), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=get_device())
+        if interval and octave:
+            gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE_INTERVAL, dtype=TORCH_LABEL_TYPE, device=get_device())
+        elif interval and not octave:
+            gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_INTERVAL, dtype=TORCH_LABEL_TYPE, device=get_device())
+        elif not interval and octave:
+            gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=get_device())
+        else:
+            gen_seq = torch.full((1,target_seq_length), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=get_device())
 
         num_primer = len(primer)
         gen_seq[..., :num_primer] = primer.type(TORCH_LABEL_TYPE).to(get_device())
@@ -150,10 +170,15 @@ class MusicTransformer(nn.Module):
         cur_i = num_primer
         while(cur_i < target_seq_length):
             # gen_seq_batch     = gen_seq.clone()
-            if not interval:
-                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END]
-            else:
+            if interval and octave:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE_INTERVAL]
+            elif interval and not octave:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_INTERVAL]
+            elif not interval and octave:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE]
+            else:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END]
+
             token_probs = y[:, cur_i-1, :]
 
             if(beam == 0):
@@ -165,26 +190,65 @@ class MusicTransformer(nn.Module):
                 token_probs = token_probs.flatten()
                 top_res, top_i = torch.topk(token_probs, beam)
 
-                beam_rows = top_i // VOCAB_SIZE
-                beam_cols = top_i % VOCAB_SIZE
+                if interval and octave:
+                    beam_rows = top_i // VOCAB_SIZE_OCTAVE_INTERVAL
+                    beam_cols = top_i % VOCAB_SIZE_OCTAVE_INTERVAL
+                elif interval and not octave:
+                    beam_rows = top_i // VOCAB_SIZE_INTERVAL
+                    beam_cols = top_i % VOCAB_SIZE_INTERVAL
+                elif not interval and octave:
+                    beam_rows = top_i // VOCAB_SIZE_OCTAVE
+                    beam_cols = top_i % VOCAB_SIZE_OCTAVE
+                else:
+                    beam_rows = top_i // VOCAB_SIZE
+                    beam_cols = top_i % VOCAB_SIZE
 
                 gen_seq = gen_seq[beam_rows, :]
                 gen_seq[..., cur_i] = beam_cols
 
             else:
+
                 distrib = torch.distributions.categorical.Categorical(probs=token_probs)
-                next_token = distrib.sample()
+
+                if topp == 0:   # 기본 설정
+                    next_token = distrib.sample()
+                else:           # top_p의 p값을 설정
+                    distrib, index_list = distrib.probs.sort(descending=True)   # 내림차순으로 정렬
+
+                    p_value = torch.tensor(topp)
+                    p_index_list = []
+                    temp = 0
+                
+                    for dis, ind in zip(distrib[0], index_list[0]):
+                        temp += dis줌
+
+                        p_index_list.append(ind.detach().cpu().numpy().tolist())    # 값의 index를 저장해
+
+                        if (temp.detach().cpu() > p_value).numpy():     # 지정한 p값보다 누적 확률이 커지면 멈춤
+                            break
+
+                    # 누적 확률 안의 index 중 하나를 선택함
+                    next_token = torch.tensor(random.sample(p_index_list, 1)).to(get_device())
+
                 # print("next token:",next_token)
                 gen_seq[:, cur_i] = next_token
 
 
                 # Let the transformer decide to end if it wants to
-                if not interval:
-                    if(next_token == TOKEN_END):
+                if interval and octave:
+                    if (next_token == TOKEN_END_OCTAVE_INTERVAL):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
+                elif interval and not octave:
+                    if(next_token == TOKEN_END_INTERVAL):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
+                elif not interval and octave:
+                    if (next_token == TOKEN_END_OCTAVE):
                         print("Model called end of sequence at:", cur_i, "/", target_seq_length)
                         break
                 else:
-                    if(next_token == TOKEN_END_INTERVAL):
+                    if(next_token == TOKEN_END):
                         print("Model called end of sequence at:", cur_i, "/", target_seq_length)
                         break
 

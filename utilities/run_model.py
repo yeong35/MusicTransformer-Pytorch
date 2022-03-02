@@ -54,7 +54,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         y = model(x)        # (batch, sequence, vocab)
 
-        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt, args.interval))
+        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt, interval = args.interval, octave = args.octave))
 
         soft_y = F.gumbel_softmax(y, tau=1, hard=False)
         hard_y = F.gumbel_softmax(y, tau=1, hard=True)
@@ -64,7 +64,9 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
         nll_loss = loss(y.reshape(y.shape[0] * y.shape[1], -1), tgt.flatten())  # 계산중 nan이 나오는 것을 확인함
         # print(x)
         # print(type(nll_loss),nll_loss)
+
         # if np.isnan(nll_loss.detach().cpu()):
+        #     print(x)
         #     exit()
         #     torch.save(y,'pred.pt')
         #     torch.save(tgt, 'target.pt')
@@ -74,10 +76,14 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         total_loss += nll_loss
 
-        if not args.interval:
-            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
-        else:
+        if args.interval and args.octave:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE_INTERVAL).float()
+        elif args.interval and not args.octave:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_INTERVAL).float()
+        elif not args.interval and args.octave:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE).float()
+        else:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
 
 
         if GAN_mode:
@@ -197,7 +203,7 @@ def eval_model(model, dataloader, loss, args):
 
             y = model(x)
 
-            sum_acc += float(compute_epiano_accuracy(y, tgt, args.interval))
+            sum_acc += float(compute_epiano_accuracy(y, tgt, interval = args.interval, octave = args.octave))
 
             y   = y.reshape(y.shape[0] * y.shape[1], -1)
             tgt = tgt.flatten()
