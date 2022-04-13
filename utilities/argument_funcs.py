@@ -13,6 +13,9 @@ def parse_train_args():
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--logscale", action="store_true", help="time_shift and duration use 32 token")
+    parser.add_argument("--absolute", action="store_true", help="Use absolute dataset and VOCAB")
+    parser.add_argument("--fusion_encoding", action="store_true", help="Use octave_fusion dataset and VOCAB")
     parser.add_argument("--octave", action="store_true", help="Use octave dataset and VOCAB")
     parser.add_argument("--interval", action="store_true", help="USE interval dataset and VOCAB")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
@@ -102,6 +105,9 @@ def parse_eval_args():
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--logscale", action="store_true", help="time_shift and duration use 32 token")
+    parser.add_argument("--absolute", action="store_true", help="Use absolute dataset and VOCAB")
+    parser.add_argument("--fusion_encoding", action="store_true", help="Use octave_fusion dataset and VOCAB")
     parser.add_argument("--octave", action="store_true", help="Use octave dataset and VOCAB")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("--interval", action="store_true", help="Using interval dataset")
@@ -166,8 +172,13 @@ def parse_generate_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-topp", type=float, default=0.0, help="top-p sampling, setting p value")
+    parser.add_argument("-data", type=str, default="both", help="using dataset, both = (classic, pop)")
+
+    parser.add_argument("--absolute", action="store_true", help="Use absolute dataset and VOCAB")
+    parser.add_argument("--fusion_encoding", action="store_true", help="Use octave_fusion dataset and VOCAB")
     parser.add_argument("--octave", action="store_true", help="Use octave dataset and VOCAB")
     parser.add_argument("--interval", action="store_true", help="USE interval dataset")
+    parser.add_argument("--logscale", action="store_true", help="time_shift and duration use 32 token")
     parser.add_argument("--condition_token", action="store_true", help="USE CTRL control")      # EY, condition_token
     parser.add_argument("-midi_root", type=str, default="./dataset/e_piano/", help="Midi file to prime the generator with")
     parser.add_argument("-output_dir", type=str, default="./gen", help="Folder to write generated midi to")

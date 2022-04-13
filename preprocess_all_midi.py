@@ -5,7 +5,7 @@ import pickle
 import third_party.midi_processor.processor as midi_processor
 
 # prep_midi
-def prep_midi(maestro_root, output_dir, interval=False, logscale=False, octave = False):
+def prep_midi(maestro_root, output_dir, interval=False, logscale=False, octave = False, fusion=False):
     """
     ----------
     Author: Damon Gwinn
@@ -26,13 +26,10 @@ def prep_midi(maestro_root, output_dir, interval=False, logscale=False, octave =
 
         o_file = os.path.join(output_path, f_name)
 
-        if not interval:
-            prepped = midi_processor.encode_midi(mid)
+        if interval or octave or fusion or logscale:
+            prepped = midi_processor.encode_midi_JE(mid, interval=interval, logspace=logscale, octave=octave, fusion=fusion)
         else:
-            prepped = midi_processor.encode_midi_JE(mid, logspace = logscale)
-        
-        if octave:
-            prepped = midi_processor.encode_midi_JE(mid, octave=True)
+            prepped = midi_processor.encode_midi(mid)
 
         if len(prepped)==0:
             print(piece)
@@ -76,7 +73,14 @@ def main():
     args            = parse_args()
     maestro_root    = args.maestro_root
     output_dir      = args.output_dir
+
+    ##====================##
     interval = True
+    logscale = True
+    octave = False
+    absolute = True
+    fusion = False
+    ##====================##
 
     # python preprocess_all_midi.py "maestro_root" -output_dir "output_dir_path"
 
@@ -85,7 +89,7 @@ def main():
 
 
 
-    prep_midi(maestro_root, output_dir, interval = interval, logscale=False, octave = True)
+    prep_midi(maestro_root, output_dir, interval = interval, logscale=logscale, octave = octave, fusion = fusion, absolute=absolute)
     print("Done!")
     print("")
 

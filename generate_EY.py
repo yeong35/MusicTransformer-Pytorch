@@ -3,7 +3,7 @@ import torch.nn as nn
 import os
 import random
 
-from third_party.midi_processor.processor import decode_midi, encode_midi
+from third_party.midi_processor.processor import decode_midi, encode_midi, decode_midi_JE, encode_midi_JE
 
 from utilities.argument_funcs import parse_generate_args, print_generate_args
 from model.music_transformer import MusicTransformer
@@ -40,27 +40,12 @@ def main():
 
     # Grabbing dataset if needed
     # pickle file path - EY
-    classic_path = './dataset/e_piano/'
-    pop_path = './dataset/pop_pickle/'
+    classic_path = 'dataset/relative_e_piano0411/'
+    pop_path = 'dataset/relative_pop9090411/'
 
     # train, val, test
-    '''
-    default
-    '''
-    classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, condition_token=args.condition_token, interval = args.interval, label = 0)
-    pop_dataset = create_pop909_datasets(pop_path, args.num_prime, condition_token=args.condition_token, interval = args.interval, label = 1)
-
-    '''
-    classic token only
-    '''
-    # classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, condition_token=args.condition_token, label = 1)
-    # pop_dataset = create_pop909_datasets(pop_path, args.num_prime, condition_token=args.condition_token, label = 0)
-    '''
-    pop token only
-    '''
-    # classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, condition_token=args.condition_token, label = 1)
-    # pop_dataset = create_pop909_datasets(pop_path, args.num_prime, condition_token=args.condition_token, label = 1)
-
+    classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, random_seq=False, condition_token=args.condition_token, interval = args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale, label = 0)
+    pop_dataset = create_pop909_datasets(pop_path, args.num_prime, random_seq=False, condition_token=args.condition_token, interval = args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale, label = 1)
 
     # dataset 지정
     classic_dataset = [classic_train, classic_eval, classic_test]
@@ -93,7 +78,7 @@ def main():
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward,
-                max_sequence=args.max_sequence, rpr=args.rpr, condition_token=args.condition_token, interval = args.interval).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token=args.condition_token, interval = args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale).to(get_device())
 
     model.load_state_dict(torch.load(args.model_weights))
 
@@ -102,55 +87,65 @@ def main():
     model.eval()
 
     # classic generation
-    for dataset, folder in zip(classic_dataset, dataset_folder):
+    if args.data != 'pop':
+        for dataset, folder in zip(classic_dataset, dataset_folder):
 
-        classic_index_list = list(range(len(dataset)))
-        folder_name_length = len(folder)
+            classic_index_list = list(range(len(dataset)))
+            folder_name_length = len(folder)
 
-        for classic_index in classic_index_list:
-            primer, _, _ = dataset[classic_index]
-            primer = primer.to(get_device())
-            print("Using primer index:", classic_index, "(", dataset.data_files[classic_index], ")")
+            for classic_index in classic_index_list:
+                primer, _, _ = dataset[classic_index]
+                primer = primer.to(get_device())
+                print("Using primer index:", classic_index, "(", dataset.data_files[classic_index], ")")
 
-            # # Saving primer first
-            # f_path = os.path.join(args.output_dir, f"primer_{classic_dataset.data_files[classic_index][len(classic_path)+5:]}.mid")
-            # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
 
-            print("RAND DIST")
-            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token, interval = args.interval)
+                # # Saving primer first
+                # f_path = os.path.join(args.output_dir+'/classic/', f"primer_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
+                # decode_midi_JE(primer[:args.num_prime].cpu().numpy(), file_path=f_path, interval=args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale)
 
-            f_path = os.path.join(
-                args.output_dir+'/classic/', f"rand_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
+                # Genearte music and save file
+                print("RAND DIST")
+                rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, topp=args.topp, condition_token=args.condition_token, interval = args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)
 
-            try:
-                decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
-            except:
-                continue
+                f_path = os.path.join(
+                    args.output_dir+'/classic/', f"rand_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
+
+                try:
+                    if args.octave or args.interval or args.fusion_encoding:
+                        decode_midi_JE(rand_seq[0].cpu().numpy(), file_path=f_path, interval=args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)
+                    else:
+                        decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
+                except:
+                    print("생성 안되는디")
+                    continue
 
     # pop generation
-    for dataset in pop_dataset:
+    if args.data != 'classic':
+        for dataset in pop_dataset:
 
-        pop_index_list = list(range(len(dataset)))
+            pop_index_list = list(range(len(dataset)))
 
-        for pop_index in pop_index_list:
-            primer, _, _ = dataset[pop_index]
-            primer = primer.to(get_device())
+            for pop_index in pop_index_list:
+                primer, _, _ = dataset[pop_index]
+                primer = primer.to(get_device())
 
-            print("Using primer index:", pop_index, "(", dataset.data_files[pop_index], ")")
+                print("Using primer index:", pop_index, "(", dataset.data_files[pop_index], ")")
 
-            # # Saving primer first
-            # f_path = os.path.join(args.output_dir, f"primer_{pop_dataset.data_files[pop_index][len(classic_path)+5:]}.mid")
-            # decode_midi(primer[:args.num_prime].cpu().numpy(), file_path=f_path)
+                # Genearte music and save file
+                print("RAND DIST")
+                rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, topp=args.topp, condition_token=args.condition_token, interval = args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)
 
-            print("RAND DIST")
-            rand_seq = model.generate(primer[:args.num_prime], args.target_seq_length, beam=0, condition_token=args.condition_token, interval = args.interval)
+                f_path = os.path.join(
+                    args.output_dir+'/pop/', f"rand_{dataset.data_files[pop_index][len(pop_path):]}.mid")
 
-            f_path = os.path.join(
-                args.output_dir+'/pop/', f"rand_{dataset.data_files[pop_index][len(pop_path):]}.mid")
-            try:
-                decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
-            except:
-                continue
+                try:
+                    if args.octave or args.interval or args.fusion_encoding:
+                        decode_midi_JE(rand_seq[0].cpu().numpy(), file_path=f_path, interval=args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)
+                    else:
+                        decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
+                except:
+                    print("생성 안되는디")
+                    continue
 
     # with torch.set_grad_enabled(False):
     #     if(args.beam > 0):

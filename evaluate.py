@@ -1,3 +1,4 @@
+from cmath import log
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -33,9 +34,23 @@ def main():
     if args.interval and args.octave:
         classic_train, classic_val, classic_test = create_epiano_datasets('dataset/octave_interval_e_piano/', args.max_sequence, interval = args.interval, octave = args.octave)
         pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, interval = True)
+    elif args.interval and args.absolute and args.logscale:
+        print("absolute, relative dataset 0411")
+        classic_train, classic_val, classic_test = create_epiano_datasets('dataset/relative_e_piano0411', args.max_sequence, interval = args.interval, octave = args.octave, absolute=args.absolute, logscale=args.logscale)
+        pop909_dataset = create_pop909_datasets('dataset/relative_pop9090411', args.max_sequence, interval = args.interval, absolute=args.absolute, logscale=args.logscale)
     elif args.interval and not args.octave:
         classic_train, classic_val, classic_test = create_epiano_datasets('dataset/logscale_e_piano/', args.max_sequence, interval = args.interval, octave = args.octave)
         pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, interval = True)
+    elif args.octave and args.fusion_encoding and args.absolute:
+        print("absolute dataset")
+        classic_train, classic_val, classic_test = create_epiano_datasets('dataset/octave_fusion_absolute_e_piano/', args.max_sequence,
+                                                                          interval=args.interval, octave=args.octave)
+        pop909_dataset = create_pop909_datasets('dataset/pop909_absolute', args.max_sequence, octave=True)
+    elif args.octave and args.fusion_encoding:
+        print("octave_fusion dataset")
+        classic_train, classic_val, classic_test = create_epiano_datasets('dataset/octave_fusion_e_piano/', args.max_sequence,
+                                                                          interval=args.interval, octave=args.octave)
+        pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, octave=True)
     elif not args.interval and args.octave:
         print("octave dataset!")
         classic_train, classic_val, classic_test = create_epiano_datasets('dataset/octave_e_piano/', args.max_sequence, interval = args.interval, octave = args.octave)
@@ -65,15 +80,23 @@ def main():
 
     model = MusicTransformer(n_layers=args.n_layers, num_heads=args.num_heads,
                 d_model=args.d_model, dim_feedforward=args.dim_feedforward,
-                max_sequence=args.max_sequence, rpr=args.rpr, condition_token = args.condition_token, interval = args.interval, octave = args.octave).to(get_device())
+                max_sequence=args.max_sequence, rpr=args.rpr, condition_token = args.condition_token, interval = args.interval, octave = args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale).to(get_device())
 
     model.load_state_dict(torch.load(args.model_weights))
 
     # No smoothed loss
-    if args.interval:
+    if args.interval and args.octave:
+        loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE_INTERVAL)
+    elif args.interval and not args.octave:
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_INTERVAL)
-    elif args.octave:
+    elif not args.interval and args.octave:
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE)
+    elif args.octave and args.fusion_encoding and args.absolute:
+        loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE_FUSION_ABSOLUTE)
+    elif args.octave and args.fusion_encoding:
+        loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE_FUSION)
+    elif args.interval and args.absolute and args.logscale:
+        loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_RELATIVE)
     else:
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD)
 

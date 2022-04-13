@@ -29,7 +29,7 @@ class MusicTransformer(nn.Module):
     """
 
     def __init__(self, n_layers=6, num_heads=8, d_model=512, dim_feedforward=1024,
-                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False, interval = False, octave = False):
+                 dropout=0.1, max_sequence=2048, rpr=False, condition_token=False, interval = False, octave = False, fusion = False, absolute=False, logscale=False):
         super(MusicTransformer, self).__init__()
 
         self.dummy      = DummyDecoder()
@@ -44,6 +44,9 @@ class MusicTransformer(nn.Module):
         self.condition_token = condition_token
         self.interval   = interval
         self.octave = octave
+        self.fusion = fusion
+        self.absolute = absolute
+        self.logscale = logscale
 
         # Input embedding
         if not self.condition_token and not interval and not octave:
@@ -54,12 +57,22 @@ class MusicTransformer(nn.Module):
             self.embedding = nn.Embedding(VOCAB_SIZE_INTERVAL, self.d_model)
         elif self.condition_token and interval and not octave:
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_INTERVAL, self.d_model)
+        elif condition_token and octave and fusion and absolute:
+            self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE_FUSION_ABSOLUTE, self.d_model)
+        elif not condition_token and octave and fusion and absolute:
+            self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE_FUSION_ABSOLUTE, self.d_model)
+        elif condition_token and octave and fusion:
+            self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE_FUSION, self.d_model)
+        elif not condition_token and octave and fusion:
+            self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE_FUSION, self.d_model)
         elif not self.condition_token and not interval and octave:
             self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE, self.d_model)
         elif self.condition_token and not interval and octave:
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE, self.d_model)
         elif not condition_token and interval and octave:
             self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE_INTERVAL, self.d_model)
+        elif logscale and interval and absolute:
+            self.embedding = nn.Embedding(VOCAB_SIZE_RELATIVE, self.d_model)
         else:
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE_INTERVAL, self.d_model)
 
@@ -91,8 +104,14 @@ class MusicTransformer(nn.Module):
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE_INTERVAL)
         elif interval and not octave:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_INTERVAL)
+        elif octave and fusion and absolute:
+            self.Wout = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE_FUSION_ABSOLUTE)
+        elif octave and fusion:
+            self.Wout = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE_FUSION)
         elif not interval and octave:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE)
+        elif interval and absolute and logscale:
+            self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_RELATIVE)
         else:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE)
         self.softmax    = nn.Softmax(dim=-1)
@@ -139,7 +158,7 @@ class MusicTransformer(nn.Module):
 
     # generate
     def generate(self, primer=None, target_seq_length=1024, beam=0, beam_chance=1.0,
-                 condition_token=False, interval=False, octave=False, topp=0):
+                 condition_token=False, interval=False, octave=False, fusion=False, absolute=False, logscale=False, topp=0):
         """
         ----------
         Author: Damon Gwinn
@@ -156,8 +175,14 @@ class MusicTransformer(nn.Module):
             gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE_INTERVAL, dtype=TORCH_LABEL_TYPE, device=get_device())
         elif interval and not octave:
             gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_INTERVAL, dtype=TORCH_LABEL_TYPE, device=get_device())
+        elif octave and fusion and absolute:
+            gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE_FUSION_ABSOLUTE, dtype=TORCH_LABEL_TYPE, device=get_device())
+        elif octave and fusion:
+            gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE_FUSION, dtype=TORCH_LABEL_TYPE, device=get_device())
         elif not interval and octave:
             gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=get_device())
+        elif interval and absolute and logscale:
+            gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_RELATIVE, dtype=TORCH_LABEL_TYPE, device=get_device())
         else:
             gen_seq = torch.full((1,target_seq_length), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=get_device())
 
@@ -174,8 +199,14 @@ class MusicTransformer(nn.Module):
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE_INTERVAL]
             elif interval and not octave:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_INTERVAL]
+            elif octave and fusion and absolute:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE_FUSION_ABSOLUTE]
+            elif octave and fusion:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE_FUSION]
             elif not interval and octave:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE]
+            elif interval and absolute and logscale:
+                y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_RELATIVE]
             else:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END]
 
@@ -196,9 +227,18 @@ class MusicTransformer(nn.Module):
                 elif interval and not octave:
                     beam_rows = top_i // VOCAB_SIZE_INTERVAL
                     beam_cols = top_i % VOCAB_SIZE_INTERVAL
+                elif octave and fusion and absolute:
+                    beam_rows = top_i // VOCAB_SIZE_OCTAVE_FUSION_ABSOLUTE
+                    beam_cols = top_i % VOCAB_SIZE_OCTAVE_FUSION_ABSOLUTE
+                elif octave and fusion:
+                    beam_rows = top_i // VOCAB_SIZE_OCTAVE_FUSION
+                    beam_cols = top_i % VOCAB_SIZE_OCTAVE_FUSION
                 elif not interval and octave:
                     beam_rows = top_i // VOCAB_SIZE_OCTAVE
                     beam_cols = top_i % VOCAB_SIZE_OCTAVE
+                elif interval and absolute and logscale:
+                    beam_rows = top_i // VOCAB_SIZE_RELATIVE
+                    beam_cols = top_i % VOCAB_SIZE_RELATIVE
                 else:
                     beam_rows = top_i // VOCAB_SIZE
                     beam_cols = top_i % VOCAB_SIZE
@@ -217,18 +257,23 @@ class MusicTransformer(nn.Module):
 
                     p_value = torch.tensor(topp)
                     p_index_list = []
-                    temp = 0
-                
+                    p_prob_list = []
+
                     for dis, ind in zip(distrib[0], index_list[0]):
-                        temp += dis줌
+                        p_prob_list.append(dis.detach().cpu().numpy().tolist())
+                        p_index_list.append(ind.detach().cpu().numpy().tolist())
 
-                        p_index_list.append(ind.detach().cpu().numpy().tolist())    # 값의 index를 저장해
-
-                        if (temp.detach().cpu() > p_value).numpy():     # 지정한 p값보다 누적 확률이 커지면 멈춤
+                        if sum(p_prob_list) > p_value:  # 누적확률값보다 커지면 하나씩만 빼주자
+                            # p_index_list.pop()
+                            # p_prob_list.pop()
                             break
 
+                    # 위에서 만든 분포는 합이 1이 아니기 때문에, 아래와같이 하여 합하면 1인 분포를 만들어준다
+                    new_prob_dist = torch.distributions.categorical.Categorical(probs=torch.tensor([p_prob_list]).to(get_device()))
+                    next_token = p_index_list[new_prob_dist.sample()]
+
                     # 누적 확률 안의 index 중 하나를 선택함
-                    next_token = torch.tensor(random.sample(p_index_list, 1)).to(get_device())
+                    next_token = torch.tensor([next_token]).to(get_device())
 
                 # print("next token:",next_token)
                 gen_seq[:, cur_i] = next_token
@@ -243,8 +288,21 @@ class MusicTransformer(nn.Module):
                     if(next_token == TOKEN_END_INTERVAL):
                         print("Model called end of sequence at:", cur_i, "/", target_seq_length)
                         break
+                elif octave and fusion and absolute:
+                    if (next_token == TOKEN_END_OCTAVE_FUSION_ABSOLUTE):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
+
+                elif octave and fusion:
+                    if (next_token == TOKEN_END_OCTAVE_FUSION):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
                 elif not interval and octave:
                     if (next_token == TOKEN_END_OCTAVE):
+                        print("Model called end of sequence at:", cur_i, "/", target_seq_length)
+                        break
+                elif interval and absolute and logscale:
+                    if (next_token == TOKEN_END_RELATIVE):
                         print("Model called end of sequence at:", cur_i, "/", target_seq_length)
                         break
                 else:

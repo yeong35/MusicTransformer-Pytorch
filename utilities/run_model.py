@@ -54,7 +54,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
 
         y = model(x)        # (batch, sequence, vocab)
 
-        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt, interval = args.interval, octave = args.octave))
+        acc_pitch_accuracy += float(compute_epiano_accuracy(y, tgt, interval = args.interval, octave = args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale))
 
         soft_y = F.gumbel_softmax(y, tau=1, hard=False)
         hard_y = F.gumbel_softmax(y, tau=1, hard=True)
@@ -80,8 +80,14 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE_INTERVAL).float()
         elif args.interval and not args.octave:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_INTERVAL).float()
+        elif args.octave and args.fusion_encoding and args.absolute:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE_FUSION_ABSOLUTE).float()
+        elif args.octave and args.fusion_encoding:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE_FUSION).float()
         elif not args.interval and args.octave:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE).float()
+        elif args.interval and args.absolute and args.logscale:
+            tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_RELATIVE).float()
         else:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()
 
@@ -203,7 +209,7 @@ def eval_model(model, dataloader, loss, args):
 
             y = model(x)
 
-            sum_acc += float(compute_epiano_accuracy(y, tgt, interval = args.interval, octave = args.octave))
+            sum_acc += float(compute_epiano_accuracy(y, tgt, interval = args.interval, octave = args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale))
 
             y   = y.reshape(y.shape[0] * y.shape[1], -1)
             tgt = tgt.flatten()

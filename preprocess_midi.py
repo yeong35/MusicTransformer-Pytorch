@@ -9,7 +9,7 @@ import third_party.midi_processor.processor as midi_processor
 JSON_FILE = "maestro-v2.0.0.json"
 
 # prep_midi
-def prep_midi(maestro_root, output_dir, interval = False, logspace=False, octave = False):
+def prep_midi(maestro_root, output_dir, interval = False, logscale=False, octave = False, fusion=False, absolute=False):
     """
     ----------
     Author: Damon Gwinn
@@ -58,12 +58,8 @@ def prep_midi(maestro_root, output_dir, interval = False, logspace=False, octave
             print("ERROR: Unrecognized split type:", split_type)
             return False
 
-        if octave and interval:
-            prepped = midi_processor.encode_midi_JE(mid, octave=octave, interval=interval)
-        elif octave and not interval:
-            prepped = midi_processor.encode_midi_JE(mid, octave=octave, interval=interval)
-        elif not octave and interval:
-            prepped = midi_processor.encode_midi_JE(mid, octave=octave, interval=interval, logspace=logspace)
+        if octave or interval or logscale or fusion or absolute:
+            prepped = midi_processor.encode_midi_JE(mid, interval=interval, logscale=logscale, octave=octave, fusion=fusion, absolute=absolute)
         else:
             prepped = midi_processor.encode_midi(mid)
 
@@ -112,10 +108,16 @@ def main():
     args            = parse_args()
     maestro_root    = args.maestro_root
     output_dir      = args.output_dir
-    interval = True         # interval preprocessing
 
+    #====================================================#
+    interval = True         # interval preprocessing
+    logscale = True
+    octave =False
+    fusion = False
+    absolute = True
+    #====================================================#
     print("Preprocessing midi files and saving to", output_dir)
-    prep_midi(maestro_root, output_dir, interval=False, logspace=False, octave = True)
+    prep_midi(maestro_root, output_dir, interval=interval, logscale=logscale, octave = octave, fusion=fusion, absolute=absolute)
     print("Done!")
     print("")
 
