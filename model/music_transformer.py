@@ -71,7 +71,7 @@ class MusicTransformer(nn.Module):
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE, self.d_model)
         elif not condition_token and interval and octave:
             self.embedding = nn.Embedding(VOCAB_SIZE_OCTAVE_INTERVAL, self.d_model)
-        elif logscale and interval and absolute:
+        elif logscale:
             self.embedding = nn.Embedding(VOCAB_SIZE_RELATIVE, self.d_model)
         else:
             self.embedding = nn.Embedding(CONDITION_VOCAB_SIZE_OCTAVE_INTERVAL, self.d_model)
@@ -110,7 +110,7 @@ class MusicTransformer(nn.Module):
             self.Wout = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE_FUSION)
         elif not interval and octave:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_OCTAVE)
-        elif interval and absolute and logscale:
+        elif logscale:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE_RELATIVE)
         else:
             self.Wout       = nn.Linear(self.d_model, VOCAB_SIZE)
@@ -181,7 +181,7 @@ class MusicTransformer(nn.Module):
             gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE_FUSION, dtype=TORCH_LABEL_TYPE, device=get_device())
         elif not interval and octave:
             gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=get_device())
-        elif interval and absolute and logscale:
+        elif logscale:
             gen_seq = torch.full((1, target_seq_length), TOKEN_PAD_RELATIVE, dtype=TORCH_LABEL_TYPE, device=get_device())
         else:
             gen_seq = torch.full((1,target_seq_length), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=get_device())
@@ -205,7 +205,7 @@ class MusicTransformer(nn.Module):
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE_FUSION]
             elif not interval and octave:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_OCTAVE]
-            elif interval and absolute and logscale:
+            elif logscale:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END_RELATIVE]
             else:
                 y = self.softmax(self.forward(gen_seq[..., :cur_i]))[..., :TOKEN_END]
@@ -236,7 +236,7 @@ class MusicTransformer(nn.Module):
                 elif not interval and octave:
                     beam_rows = top_i // VOCAB_SIZE_OCTAVE
                     beam_cols = top_i % VOCAB_SIZE_OCTAVE
-                elif interval and absolute and logscale:
+                elif logscale:
                     beam_rows = top_i // VOCAB_SIZE_RELATIVE
                     beam_cols = top_i % VOCAB_SIZE_RELATIVE
                 else:
@@ -301,7 +301,7 @@ class MusicTransformer(nn.Module):
                     if (next_token == TOKEN_END_OCTAVE):
                         print("Model called end of sequence at:", cur_i, "/", target_seq_length)
                         break
-                elif interval and absolute and logscale:
+                elif logscale:
                     if (next_token == TOKEN_END_RELATIVE):
                         print("Model called end of sequence at:", cur_i, "/", target_seq_length)
                         break

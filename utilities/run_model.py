@@ -86,7 +86,7 @@ def train_epoch(cur_epoch, model, critic, classifier, dataloader, loss, classifi
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE_FUSION).float()
         elif not args.interval and args.octave:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_OCTAVE).float()
-        elif args.interval and args.absolute and args.logscale:
+        elif args.logscale:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE_RELATIVE).float()
         else:
             tgt = F.one_hot(tgt, num_classes=VOCAB_SIZE).float()

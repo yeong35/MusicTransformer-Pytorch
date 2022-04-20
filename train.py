@@ -101,15 +101,6 @@ def main():
                                                                        [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1),
                                                                         len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
                                                                        generator=torch.Generator().manual_seed(42))
-    elif args.interval and args.absolute and args.logscale:
-        print("relative+absolute dataset")
-        classic_train, classic_val, classic_test = create_epiano_datasets('./dataset/relative_e_piano0411', args.max_sequence, random_seq=False,
-                                                                          condition_token=args.condition_token, interval = args.interval, octave = args.octave, logscale=args.logscale)
-        pop909_dataset = create_pop909_datasets('./dataset/relative_pop9090411', args.max_sequence, random_seq=False, condition_token=args.condition_token, interval = args.interval, octave = args.octave, logscale=args.logscale)
-        pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
-                                                                       [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1),
-                                                                        len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
-                                                                       generator=torch.Generator().manual_seed(42))
     elif args.octave and args.fusion_encoding and args.absolute:
         print("absolute dataset!!")
         classic_train, classic_val, classic_test = create_epiano_datasets('./dataset/octave_fusion_absolute_e_piano', args.max_sequence,
@@ -146,6 +137,15 @@ def main():
                                                                        [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1),
                                                                         len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
                                                                        generator=torch.Generator().manual_seed(42))
+    elif args.logscale:
+        print("logscvale dataset")
+        classic_train, classic_val, classic_test = create_epiano_datasets('./dataset/logscale_epiano0420', args.max_sequence, random_seq=True,
+                                                                            condition_token=args.condition_token, interval = args.interval, octave = args.octave, logscale=args.logscale, absolute = args.absolute)
+        pop909_dataset = create_pop909_datasets('./dataset/logscale_pop0420', args.max_sequence, random_seq=True, condition_token=args.condition_token, interval = args.interval, octave = args.octave, logscale=args.logscale, absolute = args.absolute)
+        pop_train, pop_valid, pop_test = torch.utils.data.random_split(pop909_dataset,
+                                                                        [int(len(pop909_dataset) * 0.8), int(len(pop909_dataset) * 0.1),
+                                                                        len(pop909_dataset) - int(len(pop909_dataset) * 0.8) - int(len(pop909_dataset) * 0.1)],
+                                                                        generator=torch.Generator().manual_seed(42))
     else:
         classic_train, classic_val, classic_test = create_epiano_datasets(args.classic_input_dir, args.max_sequence,
                                                                           condition_token = args.condition_token, octave = args.octave)
@@ -230,7 +230,7 @@ def main():
         eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE_FUSION)
     elif not args.interval and args.octave and not args.fusion_encoding:
         eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE)
-    elif args.interval and args.absolute and args.logscale:
+    elif args.logscale:
         eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_RELATIVE)
     else:
         eval_loss_func = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD)
@@ -250,7 +250,7 @@ def main():
             train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE_OCTAVE_FUSION, ignore_index=TOKEN_PAD_OCTAVE_FUSION)
         elif not args.interval and args.octave and not args.fusion_encoding:
             train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE_OCTAVE, ignore_index=TOKEN_PAD_OCTAVE)
-        elif args.interval and args.absolute and args.logscale:
+        elif args.logscale:
             train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE_RELATIVE, ignore_index=TOKEN_PAD_RELATIVE)
         else:
             train_loss_func = SmoothCrossEntropyLoss(args.ce_smoothing, VOCAB_SIZE, ignore_index=TOKEN_PAD)

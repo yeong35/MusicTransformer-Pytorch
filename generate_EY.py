@@ -40,8 +40,8 @@ def main():
 
     # Grabbing dataset if needed
     # pickle file path - EY
-    classic_path = 'dataset/relative_e_piano0411/'
-    pop_path = 'dataset/relative_pop9090411/'
+    classic_path = 'dataset/logscale_epiano0420/'
+    pop_path = 'dataset/logscale_pop0420/'
 
     # train, val, test
     classic_train, classic_eval, classic_test = create_epiano_datasets(classic_path, args.num_prime, random_seq=False, condition_token=args.condition_token, interval = args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale=args.logscale, label = 0)
@@ -137,7 +137,7 @@ def main():
 
                 f_path = os.path.join(
                     args.output_dir+'/pop/', f"rand_{dataset.data_files[pop_index][len(pop_path):]}.mid")
-
+            
                 try:
                     if args.octave or args.interval or args.fusion_encoding:
                         decode_midi_JE(rand_seq[0].cpu().numpy(), file_path=f_path, interval=args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)

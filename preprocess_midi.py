@@ -110,11 +110,11 @@ def main():
     output_dir      = args.output_dir
 
     #====================================================#
-    interval = True         # interval preprocessing
+    interval = False         # interval preprocessing
     logscale = True
     octave =False
     fusion = False
-    absolute = True
+    absolute = False
     #====================================================#
     print("Preprocessing midi files and saving to", output_dir)
     prep_midi(maestro_root, output_dir, interval=interval, logscale=logscale, octave = octave, fusion=fusion, absolute=absolute)

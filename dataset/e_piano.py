@@ -2,6 +2,7 @@ import os
 import pickle
 import random
 from numpy import logspace
+import numpy
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
@@ -100,7 +101,7 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
     elif not interval and octave:
         x   = torch.full((max_seq, ), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=cpu_device())
         tgt = torch.full((max_seq, ), TOKEN_PAD_OCTAVE, dtype=TORCH_LABEL_TYPE, device=cpu_device())
-    elif logscale and absolute and interval:
+    elif logscale:
         x   = torch.full((max_seq, ), TOKEN_PAD_RELATIVE, dtype=TORCH_LABEL_TYPE, device=cpu_device())
         tgt = torch.full((max_seq, ), TOKEN_PAD_RELATIVE, dtype=TORCH_LABEL_TYPE, device=cpu_device())
     else:
@@ -114,6 +115,33 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
         return x, tgt
 
     if(raw_len < full_seq):
+
+        if interval and logscale and absolute:
+            
+            start_pitch = -1
+            last_pitch = -1
+       
+            data_temp = numpy.array([])
+
+            for token in raw_mid:
+                token_cpu = token.cpu().detach().numpy()
+                if token_cpu in range(128, 128+255):
+                    if start_pitch == -1:
+                        start_pitch = token_cpu - 127
+                        last_pitch = token_cpu -127
+                        token_cpu = 127
+
+                        data_temp = numpy.append(start_pitch, data_temp)    # 앞에 절대음 토큰
+                        
+                    else:
+                        token_cpu = (token_cpu-last_pitch)+127
+                        last_pitch = last_pitch + token_cpu - 127
+                        data_temp = numpy.append(data_temp, token_cpu)
+                else:
+                    data_temp = numpy.append(data_temp, token_cpu)
+
+            raw_mid = torch.tensor(data_temp[:], dtype=TORCH_LABEL_TYPE, device=cpu_device())
+
         x[:raw_len]         = raw_mid
         tgt[:raw_len-1]     = raw_mid[1:]
         if interval and octave:
@@ -126,10 +154,11 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
             tgt[raw_len] = TOKEN_END_OCTAVE_FUSION
         elif not interval and octave:
             tgt[raw_len]    = TOKEN_END_OCTAVE
-        elif interval and fusion and absolute:
+        elif logscale:
             tgt[raw_len]    = TOKEN_END_RELATIVE
         else:
             tgt[raw_len]    = TOKEN_END
+            
     else:
         # Randomly selecting a range
         if(random_seq):
@@ -143,7 +172,32 @@ def process_midi(raw_mid, max_seq, random_seq, condition_token=False, interval =
         end = start + full_seq
 
         data = raw_mid[start:end]
+        # 음차 만들어주기
+        if interval and logscale and absolute:
+            
+            start_pitch = -1
+            last_pitch = -1
 
+            data_temp = numpy.array([])
+
+            for token in data:
+                token_cpu = token.cpu().detach().numpy()
+                if token_cpu in range(128, 128+255):
+                    if start_pitch == -1:
+                        start_pitch = token_cpu - 127
+                        last_pitch = token_cpu -127
+                        token_cpu = 127
+                        data_temp = numpy.append(start_pitch, data_temp)    # 앞에 절대음 토큰
+                        
+                    else:
+                        token_cpu = (token_cpu-last_pitch)+127
+                        last_pitch = last_pitch + token_cpu - 127
+                        data_temp = numpy.append(data_temp, token_cpu)
+                else:
+                    data_temp = numpy.append(data_temp, token_cpu)
+                
+                data_temp = numpy.append(data_temp, token_cpu)
+            data = torch.tensor(data_temp, dtype=TORCH_LABEL_TYPE, device=cpu_device())
         # condition_token이 true면 label에 따라 조건코드를 추가해주자
         if condition_token:
             if label == 0:
@@ -227,7 +281,7 @@ def compute_epiano_accuracy(out, tgt, interval = False, octave = False, fusion=F
         mask = (tgt != TOKEN_PAD_OCTAVE_FUSION)
     elif interval and not octave:
         mask = (tgt != TOKEN_PAD_INTERVAL)
-    elif interval and absolute and logscale:
+    elif logscale:
         mask = (tgt != TOKEN_PAD_RELATIVE)
     else:
         mask = (tgt != TOKEN_PAD)

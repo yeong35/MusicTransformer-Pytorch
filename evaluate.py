@@ -34,10 +34,10 @@ def main():
     if args.interval and args.octave:
         classic_train, classic_val, classic_test = create_epiano_datasets('dataset/octave_interval_e_piano/', args.max_sequence, interval = args.interval, octave = args.octave)
         pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, interval = True)
-    elif args.interval and args.absolute and args.logscale:
-        print("absolute, relative dataset 0411")
-        classic_train, classic_val, classic_test = create_epiano_datasets('dataset/relative_e_piano0411', args.max_sequence, interval = args.interval, octave = args.octave, absolute=args.absolute, logscale=args.logscale)
-        pop909_dataset = create_pop909_datasets('dataset/relative_pop9090411', args.max_sequence, interval = args.interval, absolute=args.absolute, logscale=args.logscale)
+    elif args.logscale:
+        print("logscale dataset 0420")
+        classic_train, classic_val, classic_test = create_epiano_datasets('dataset/logscale_epiano0420/', args.max_sequence, interval = args.interval, octave = args.octave, absolute=args.absolute, logscale=args.logscale)
+        pop909_dataset = create_pop909_datasets('dataset/logscale_pop0420/', args.max_sequence, interval = args.interval, absolute=args.absolute, logscale=args.logscale)
     elif args.interval and not args.octave:
         classic_train, classic_val, classic_test = create_epiano_datasets('dataset/logscale_e_piano/', args.max_sequence, interval = args.interval, octave = args.octave)
         pop909_dataset = create_pop909_datasets('dataset/pop_pickle/', args.max_sequence, interval = True)
@@ -95,7 +95,7 @@ def main():
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE_FUSION_ABSOLUTE)
     elif args.octave and args.fusion_encoding:
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_OCTAVE_FUSION)
-    elif args.interval and args.absolute and args.logscale:
+    elif args.logscale:
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD_RELATIVE)
     else:
         loss = nn.CrossEntropyLoss(ignore_index=TOKEN_PAD)
