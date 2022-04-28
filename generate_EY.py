@@ -111,7 +111,7 @@ def main():
                     args.output_dir+'/classic/', f"rand_{dataset.data_files[classic_index][len(classic_path)+folder_name_length:]}.mid")
 
                 try:
-                    if args.octave or args.interval or args.fusion_encoding:
+                    if args.octave or args.interval or args.fusion_encoding or args.logscale:
                         decode_midi_JE(rand_seq[0].cpu().numpy(), file_path=f_path, interval=args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)
                     else:
                         decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
@@ -139,7 +139,7 @@ def main():
                     args.output_dir+'/pop/', f"rand_{dataset.data_files[pop_index][len(pop_path):]}.mid")
             
                 try:
-                    if args.octave or args.interval or args.fusion_encoding:
+                    if args.octave or args.interval or args.fusion_encoding or args.logscale:
                         decode_midi_JE(rand_seq[0].cpu().numpy(), file_path=f_path, interval=args.interval, octave=args.octave, fusion=args.fusion_encoding, absolute=args.absolute, logscale = args.logscale)
                     else:
                         decode_midi(rand_seq[0].cpu().numpy(), file_path=f_path)
